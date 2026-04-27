@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>360° Architectural Viewer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0a0a0a;
+            --ui-bg: rgba(20, 20, 20, 0.8);
+            --accent: #c9a96e; /* 建築パースに馴染むゴールド系アクセント */
+            --text-color: #e0e0e0;
+            --font-main: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: var(--font-main);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ビューアエリア */
+        #viewer-container {
+            flex: 1;
+            width: 100%;
+            position: relative;
+            cursor: grab;
+        }
+        #viewer-container:active { cursor: grabbing; }
+
+        /* ドロップゾーンのオーバーレイ */
+        #drop-zone {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.6);
+            border: 2px dashed #444;
+            margin: 20px;
+            z-index: 10;
+            transition: all 0.3s ease;
+            pointer-events: none; /* 初期状態では後ろの操作を邪魔しない */
+        }
+        #drop-zone.active {
+            background: rgba(201, 169, 110, 0.2);
+            border-color: var(--accent);
+            opacity: 1;
+        }
+        .hidden { opacity: 0; display: none !important; }
+
+        /* 下部UIパネル */
+        #ui-panel {
+            background: var(--ui-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-top: 1px solid #222;
+            padding: 15px 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 20;
+        }
+
+        .file-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        #file-name {
+            font-size: 14px;
+            letter-spacing: 0.05em;
+            color: var(--text-color);
+        }
+        .status-tag {
+            font-size: 10px;
+            text-transform: uppercase;
+            color: var(--accent);
+            letter-spacing: 0.1em;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+        }
+
+        button {
+            background: transparent;
+            border: 1px solid #444;
+            color: var(--text-color);
+            padding: 8px 16px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+        button:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        button.active {
+            background: var(--accent);
+            color: var(--bg-color);
+            border-color: var(--accent);
+        }
+
+        /* レスポンシブ調整 */
+        @media (max-width: 600px) {
+            #ui-panel {
+                flex-direction: column;
+                gap: 15px;
+                padding: 20px;
+            }
+            .controls { width: 100%; justify-content: center; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="viewer-container">
+    <div id="drop-zone">
+        <p style="font-size: 18px; margin-bottom: 10px;">PANORAMA VIEWER</p>
+        <p style="font-size: 12px; color: #888;">ドラッグ＆ドロップして画像を表示</p>
+    </div>
+</div>
+
+<div id="ui-panel">
+    <div class="file-info">
+        <span class="status-tag">Live Preview</span>
+        <span id="file-name">画像を読み込んでください</span>
+    </div>
+    <div class="controls">
+        <button id="rotate-btn" class="active">Auto Rotate</button>
+        <button id="upload-btn">Upload</button>
+        <input type="file" id="file-input" accept="image/*" style="display: none;">
+    </div>
+</div>
+
+<script type="importmap">
+{
+    "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+    }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+let scene, camera, renderer, sphere;
+let isUserInteracting = false;
+let onPointerDownPointerX = 0, onPointerDownPointerY = 0;
+let lon = 0, onPointerDownLon = 0;
+let lat = 0, onPointerDownLat = 0;
+let phi = 0, theta = 0;
+let autoRotate = true;
+
+const container = document.getElementById('viewer-container');
+const fileNameDisplay = document.getElementById('file-name');
+
+init();
+animate();
+
+function init() {
+    // Scene & Camera
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 1100);
+
+    // Renderer
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    container.appendChild(renderer.domElement);
+
+    // Sphere Geometry (Inside out)
+    const geometry = new THREE.SphereGeometry(500, 60, 40);
+    geometry.scale(-1, 1, 1); // 内側に画像を貼り付けるために反転
+
+    const material = new THREE.MeshBasicMaterial({ color: 0x111111 }); // 初期状態は暗い色
+    sphere = new THREE.Mesh(geometry, material);
+    scene.add(sphere);
+
+    // Events
+    container.addEventListener('pointerdown', onPointerDown);
+    container.addEventListener('wheel', onWheel);
+    window.addEventListener('resize', onWindowResize);
+
+    // File Upload & Drag/Drop
+    setupFileHandlers();
+}
+
+function setupFileHandlers() {
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const uploadBtn = document.getElementById('upload-btn');
+
+    uploadBtn.addEventListener('click', () => fileInput.click());
+    
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) loadTexture(e.target.files[0]);
+    });
+
+    window.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('active');
+        dropZone.classList.remove('hidden');
+    });
+
+    window.addEventListener('dragleave', () => {
+        dropZone.classList.remove('active');
+    });
+
+    window.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('active');
+        if (e.dataTransfer.files.length > 0) {
+            loadTexture(e.dataTransfer.files[0]);
+        }
+    });
+}
+
+function loadTexture(file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const loader = new THREE.TextureLoader();
+        loader.load(e.target.result, (texture) => {
+            texture.colorSpace = THREE.SRGBColorSpace;
+            sphere.material.map = texture;
+            sphere.material.needsUpdate = true;
+            document.getElementById('drop-zone').classList.add('hidden');
+            fileNameDisplay.textContent = file.name;
+        });
+    };
+    reader.readAsDataURL(file);
+}
+
+// Controls
+document.getElementById('rotate-btn').addEventListener('click', function() {
+    autoRotate = !autoRotate;
+    this.classList.toggle('active');
+});
+
+function onPointerDown(event) {
+    if (event.isPrimary === false) return;
+    isUserInteracting = true;
+    onPointerDownPointerX = event.clientX;
+    onPointerDownPointerY = event.clientY;
+    onPointerDownLon = lon;
+    onPointerDownLat = lat;
+    document.addEventListener('pointermove', onPointerMove);
+    document.addEventListener('pointerup', onPointerUp);
+}
+
+function onPointerMove(event) {
+    if (event.isPrimary === false) return;
+    lon = (onPointerDownPointerX - event.clientX) * 0.1 + onPointerDownLon;
+    lat = (event.clientY - onPointerDownPointerY) * 0.1 + onPointerDownLat;
+}
+
+function onPointerUp() {
+    isUserInteracting = false;
+    document.removeEventListener('pointermove', onPointerMove);
+    document.removeEventListener('pointerup', onPointerUp);
+}
+
+function onWheel(event) {
+    const fov = camera.fov + event.deltaY * 0.05;
+    camera.fov = THREE.MathUtils.clamp(fov, 10, 75);
+    camera.updateProjectionMatrix();
+}
+
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    update();
+}
+
+function update() {
+    if (autoRotate && !isUserInteracting) {
+        lon += 0.1;
+    }
+
+    lat = Math.max(-85, Math.min(85, lat));
+    phi = THREE.MathUtils.degToRad(90 - lat);
+    theta = THREE.MathUtils.degToRad(lon);
+
+    const x = 500 * Math.sin(phi) * Math.cos(theta);
+    const y = 500 * Math.cos(phi);
+    const z = 500 * Math.sin(phi) * Math.sin(theta);
+
+    camera.lookAt(x, y, z);
+    renderer.render(scene, camera);
+}
+</script>
+</body>
+</html>
