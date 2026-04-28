@@ -3,48 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>masiro | 360° Panorama Viewer</title>
+    <title>masiro | 360° Studio</title>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital@1&family=Inter:wght@300;400&display=swap" rel="stylesheet">
     <style>
         :root {
             --bg: #000000;
             --accent: #c9a96e;
             --text: #ffffff;
-            --panel-bg: rgba(0, 0, 0, 0.7);
+            --panel-bg: rgba(0, 0, 0, 0.8);
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; height: 100vh; overflow: hidden; }
 
         header {
             position: absolute; top: 0; width: 100%; padding: 20px 30px;
-            display: flex; align-items: baseline; gap: 12px; z-index: 100; pointer-events: none;
+            display: flex; justify-content: space-between; align-items: center; z-index: 100; pointer-events: none;
         }
-        /* ロゴを masiro に変更 */
-        .logo { font-family: 'Cormorant Garamond', serif; font-size: 26px; letter-spacing: 0.1em; text-transform: lowercase; }
+        .logo { font-family: 'Cormorant Garamond', serif; font-size: 26px; letter-spacing: 0.1em; pointer-events: auto; }
         .logo span { color: var(--accent); font-style: italic; margin-left: 4px; font-size: 20px; }
 
         #viewer-container { width: 100%; height: 100vh; cursor: grab; }
 
+        /* サイドバー：複数画像リスト */
+        #side-list {
+            position: absolute; left: 20px; top: 80px; width: 200px; max-height: 70vh;
+            background: var(--panel-bg); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1); padding: 15px; border-radius: 4px;
+            overflow-y: auto; z-index: 100; transition: 0.3s;
+        }
+        .list-item {
+            font-size: 11px; padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.05);
+            cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.7;
+        }
+        .list-item:hover, .list-item.active { opacity: 1; color: var(--accent); }
+
+        /* 下部操作パネル */
         #ui-panel {
             position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
             background: var(--panel-bg); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
-            border: 1px solid rgba(255,255,255,0.1); padding: 8px 24px;
+            border: 1px solid rgba(255,255,255,0.1); padding: 10px 25px;
             display: flex; align-items: center; gap: 20px; border-radius: 50px; z-index: 100;
         }
-        .file-info { font-size: 10px; letter-spacing: 0.1em; color: var(--accent); text-transform: uppercase; }
         .btn-group { display: flex; gap: 15px; }
         button {
             background: transparent; border: none; color: var(--text); font-size: 10px;
-            letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; padding: 5px 0;
+            letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; transition: 0.2s;
         }
-        button.active { color: var(--accent); border-bottom: 1px solid var(--accent); }
+        button:hover { color: var(--accent); }
+        button.active { color: var(--accent); font-weight: bold; }
+        #rec-btn.recording { color: #ff4444; animation: blink 1s infinite; }
+
+        @keyframes blink { 50% { opacity: 0.5; } }
 
         #drop-zone {
             position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
             background: rgba(0,0,0,0.9); z-index: 50; transition: 0.6s ease;
         }
         #drop-zone.hidden { opacity: 0; pointer-events: none; }
-        .drop-text { font-family: 'Cormorant Garamond', serif; font-size: 24px; font-style: italic; color: var(--accent); }
     </style>
 </head>
 <body>
@@ -53,24 +68,28 @@
     <div class="logo">masiro<span>360°</span></div>
 </header>
 
+<div id="side-list" class="hidden">
+    <div style="font-size: 9px; color: #666; margin-bottom: 10px;">GALLERY (MAX 50)</div>
+    <div id="image-items"></div>
+</div>
+
 <div id="viewer-container">
-    <div id="drop-zone"><div class="drop-text">Open Your Perspective</div></div>
+    <div id="drop-zone"><div style="font-family: 'Cormorant Garamond', serif; font-size: 24px; color: var(--accent);">Drag & Drop Images</div></div>
 </div>
 
 <div id="ui-panel">
-    <div class="file-info" id="file-name">Waiting for Image...</div>
     <div class="btn-group">
-        <button id="rotate-btn" class="active">Rotate</button>
         <button id="upload-btn">Import</button>
+        <button id="rotate-btn" class="active">Auto</button>
+        <button id="shot-btn">Snapshot</button>
+        <button id="rec-btn">Record</button>
     </div>
-    <input type="file" id="file-input" accept="image/*" style="display:none;">
+    <input type="file" id="file-input" accept="image/*" multiple style="display:none;">
 </div>
 
 <script type="importmap">
 {
-    "imports": {
-        "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
-    }
+    "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" }
 }
 </script>
 
@@ -79,8 +98,9 @@ import * as THREE from 'three';
 
 let scene, camera, renderer, sphere;
 let lon = 0, lat = 0, phi = 0, theta = 0;
-let isUserInteracting = false;
-let autoRotate = true;
+let isUserInteracting = false, autoRotate = true;
+let images = [];
+let mediaRecorder, recordedChunks = [];
 
 init();
 animate();
@@ -89,96 +109,120 @@ function init() {
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 1100);
 
-    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
-    
-    // 【明るさ設定】補正を一切通さず、テクスチャのピクセルをそのまま出力
     renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMapping = THREE.NoToneMapping; 
+    renderer.toneMapping = THREE.NoToneMapping;
     
     document.getElementById('viewer-container').appendChild(renderer.domElement);
 
     const geometry = new THREE.SphereGeometry(500, 60, 40);
     geometry.scale(-1, 1, 1);
-    
-    // 画像そのものの色味を100%出すため、光の影響を受けない素材を使用
-    const material = new THREE.MeshBasicMaterial({ color: 0x000000 });
-    sphere = new THREE.Mesh(geometry, material);
+    sphere = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: 0x111111 }));
     scene.add(sphere);
 
     setupInteractions();
-    setupFileUpload();
-}
-
-function loadTexture(file) {
-    if(!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        new THREE.TextureLoader().load(e.target.result, (texture) => {
-            texture.colorSpace = THREE.SRGBColorSpace;
-            sphere.material.map = texture;
-            sphere.material.color.set(0xffffff); // 発光を最大に
-            sphere.material.needsUpdate = true;
-            document.getElementById('drop-zone').classList.add('hidden');
-            document.getElementById('file-name').textContent = file.name;
-        });
-    };
-    reader.readAsDataURL(file);
+    setupFeatures();
 }
 
 function setupInteractions() {
     const container = document.getElementById('viewer-container');
     container.addEventListener('pointerdown', (e) => {
         isUserInteracting = true;
-        const startX = e.clientX, startY = e.clientY;
-        const startLon = lon, startLat = lat;
-        const onPointerMove = (ev) => {
+        const startX = e.clientX, startY = e.clientY, startLon = lon, startLat = lat;
+        const move = (ev) => {
             lon = (startX - ev.clientX) * 0.15 + startLon;
             lat = (ev.clientY - startY) * 0.15 + startLat;
         };
-        const onPointerUp = () => {
-            isUserInteracting = false;
-            document.removeEventListener('pointermove', onPointerMove);
-            document.removeEventListener('pointerup', onPointerUp);
-        };
-        document.addEventListener('pointermove', onPointerMove);
-        document.addEventListener('pointerup', onPointerUp);
+        const up = () => { isUserInteracting = false; document.removeEventListener('pointermove', move); };
+        document.addEventListener('pointermove', move);
+        document.addEventListener('pointerup', up);
     });
+
+    // マウスホイールによる遠近調整
     container.addEventListener('wheel', (e) => {
-        camera.fov = Math.min(85, Math.max(20, camera.fov + e.deltaY * 0.05));
+        camera.fov = Math.min(90, Math.max(30, camera.fov + e.deltaY * 0.05));
         camera.updateProjectionMatrix();
     });
 }
 
-function setupFileUpload() {
+function setupFeatures() {
     const input = document.getElementById('file-input');
     document.getElementById('upload-btn').onclick = () => input.click();
-    input.onchange = (e) => loadTexture(e.target.files[0]);
+    input.onchange = (e) => handleFiles(e.target.files);
+
     window.ondragover = (e) => e.preventDefault();
-    window.ondrop = (e) => { e.preventDefault(); loadTexture(e.dataTransfer.files[0]); };
+    window.ondrop = (e) => { e.preventDefault(); handleFiles(e.dataTransfer.files); };
+
+    // 静止画保存
+    document.getElementById('shot-btn').onclick = () => {
+        const link = document.createElement('a');
+        link.download = `masiro_shot_${Date.now()}.png`;
+        link.href = renderer.domElement.toDataURL('image/png');
+        link.click();
+    };
+
+    // 録画機能
+    document.getElementById('rec-btn').onclick = function() {
+        if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+            startRecording(this);
+        } else {
+            mediaRecorder.stop();
+            this.classList.remove('recording');
+            this.innerText = 'Record';
+        }
+    };
+
+    document.getElementById('rotate-btn').onclick = function() {
+        autoRotate = !autoRotate;
+        this.classList.toggle('active');
+    };
 }
 
-document.getElementById('rotate-btn').onclick = function() {
-    autoRotate = !autoRotate;
-    this.classList.toggle('active');
-};
-
-function animate() {
-    requestAnimationFrame(animate);
-    if (autoRotate && !isUserInteracting) lon += 0.08;
-    lat = Math.max(-85, Math.min(85, lat));
-    phi = THREE.MathUtils.degToRad(90 - lat);
-    theta = THREE.MathUtils.degToRad(lon);
-    camera.lookAt(500 * Math.sin(phi) * Math.cos(theta), 500 * Math.cos(phi), 500 * Math.sin(phi) * Math.sin(theta));
-    renderer.render(scene, camera);
+function handleFiles(files) {
+    const fileList = Array.from(files).slice(0, 50);
+    const container = document.getElementById('image-items');
+    document.getElementById('side-list').classList.remove('hidden');
+    
+    fileList.forEach((file, index) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const item = document.createElement('div');
+            item.className = 'list-item';
+            item.textContent = file.name;
+            item.onclick = () => loadToViewer(e.target.result, item);
+            container.appendChild(item);
+            if (index === 0 && images.length === 0) loadToViewer(e.target.result, item);
+            images.push(file);
+        };
+        reader.readAsDataURL(file);
+    });
 }
 
-window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-});
-</script>
-</body>
-</html>
+function loadToViewer(src, element) {
+    new THREE.TextureLoader().load(src, (texture) => {
+        texture.colorSpace = THREE.SRGBColorSpace;
+        sphere.material.map = texture;
+        sphere.material.needsUpdate = true;
+        document.getElementById('drop-zone').classList.add('hidden');
+        document.querySelectorAll('.list-item').forEach(el => el.classList.remove('active'));
+        element.classList.add('active');
+    });
+}
+
+function startRecording(btn) {
+    recordedChunks = [];
+    const stream = renderer.domElement.captureStream(30);
+    mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9' });
+    mediaRecorder.ondataavailable = (e) => recordedChunks.push(e.data);
+    mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedChunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `masiro_video_${Date.now()}.webm`;
+        a.click();
+    };
+    mediaRecorder.start();
+    btn.classList.add('recording');
+    btn.innerText = 'Stop
