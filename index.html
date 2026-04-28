@@ -4,24 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>masiro | 360° Studio Pro</title>
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital@1&family=Inter:wght@300;400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital@1&family=Inter:wght@400;600&display=swap" rel="stylesheet">
     <style>
         :root {
             --bg: #000000;
             --accent: #c9a96e;
             --text: #ffffff;
-            --panel-bg: rgba(10, 10, 10, 0.85);
+            --panel-bg: rgba(15, 15, 15, 0.95); /* パネルを濃くして視認性アップ */
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; height: 100vh; overflow: hidden; }
 
-        /* UI全体のフェード管理 */
-        .ui-element { transition: opacity 0.4s ease, visibility 0.4s ease; opacity: 1; visibility: visible; }
+        /* UI管理：初期状態は opacity 1 */
+        .ui-element { transition: opacity 0.3s ease; opacity: 1; visibility: visible; z-index: 1000; }
         .ui-hidden .ui-element { opacity: 0; visibility: hidden; pointer-events: none; }
 
         header {
-            position: absolute; top: 0; width: 100%; padding: 20px 30px;
-            display: flex; justify-content: space-between; align-items: center; z-index: 100; pointer-events: none;
+            position: absolute; top: 0; width: 100%; padding: 25px 30px;
+            display: flex; justify-content: space-between; align-items: center; pointer-events: none;
         }
         .logo { font-family: 'Cormorant Garamond', serif; font-size: 26px; letter-spacing: 0.1em; pointer-events: auto; }
         .logo span { color: var(--accent); font-style: italic; margin-left: 4px; font-size: 20px; }
@@ -29,35 +29,31 @@
         #viewer-container { width: 100%; height: 100vh; cursor: grab; background: #000; }
 
         #side-list {
-            position: absolute; left: 20px; top: 80px; width: 220px; max-height: 50vh;
-            background: var(--panel-bg); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
-            border: 1px solid rgba(255,255,255,0.1); padding: 15px; border-radius: 4px;
-            overflow-y: auto; z-index: 110; display: none;
+            position: absolute; left: 20px; top: 85px; width: 220px; max-height: 50vh;
+            background: var(--panel-bg); border: 1px solid rgba(255,255,255,0.15); 
+            padding: 15px; border-radius: 8px; overflow-y: auto; display: none;
         }
         #side-list.active { display: block; }
-        .list-item { font-size: 11px; padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.6; }
-        .list-item:hover, .list-item.active { opacity: 1; color: var(--accent); background: rgba(255,255,255,0.05); }
+        .list-item { font-size: 11px; padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #ccc; }
+        .list-item:hover, .list-item.active { color: var(--accent); background: rgba(201, 169, 110, 0.1); }
 
         #ui-panel {
-            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
-            background: var(--panel-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255,255,255,0.1); padding: 10px 25px;
-            display: flex; align-items: center; gap: 15px; border-radius: 50px; z-index: 120;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: fit-content; max-width: 95vw;
+            position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
+            background: var(--panel-bg); border: 1px solid rgba(255,255,255,0.2);
+            padding: 15px 35px; border-radius: 60px; display: flex; align-items: center; gap: 20px;
+            box-shadow: 0 15px 45px rgba(0,0,0,0.8);
         }
-        .btn-group { display: flex; gap: 12px; }
+        .btn-group { display: flex; gap: 15px; }
         button {
-            background: transparent; border: none; color: var(--text); font-size: 10px;
-            letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; transition: 0.2s;
-            padding: 5px 4px; white-space: nowrap;
+            background: transparent; border: none; color: var(--text); font-size: 11px; font-weight: 600;
+            letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; padding: 8px 5px;
         }
-        button:hover { color: var(--accent); }
-        button.active { color: var(--accent); font-weight: bold; border-bottom: 1px solid var(--accent); }
+        button.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
         
-        #drop-zone { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.85); z-index: 200; pointer-events: none; }
+        #drop-zone { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.85); z-index: 2000; pointer-events: none; }
         #drop-zone.hidden { opacity: 0; visibility: hidden; }
         
-        #hint { position: absolute; bottom: 85px; left: 50%; transform: translateX(-50%); font-size: 10px; color: var(--accent); opacity: 0.6; pointer-events: none; }
+        #hint { position: absolute; bottom: 110px; left: 50%; transform: translateX(-50%); font-size: 11px; color: var(--accent); font-weight: 400; pointer-events: none; }
     </style>
 </head>
 <body>
@@ -74,7 +70,7 @@
     <div id="drop-zone"><div style="font-family: 'Cormorant Garamond', serif; font-size: 28px; color: var(--accent);">Open Your Vision</div></div>
 </div>
 
-<div id="hint" class="ui-element">Tap background to toggle UI</div>
+<div id="hint" class="ui-element">背景をタップしてUIの表示切替</div>
 
 <div id="ui-panel" class="ui-element">
     <div class="btn-group">
@@ -96,7 +92,7 @@ import * as THREE from 'three';
 let scene, camera, renderer, sphere;
 let lon = 0, lat = 0, phi = 0, theta = 0;
 let isUserInteracting = false, autoRotate = true, useGyro = false;
-let deviceAlpha = 0, deviceBeta = 0, deviceGamma = 0;
+let startLon = 0, startAlpha = null;
 
 init();
 animate();
@@ -108,8 +104,6 @@ function init() {
     renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
-    
-    // 【明るさの再固定】
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.NoToneMapping; 
     
@@ -117,8 +111,6 @@ function init() {
 
     const geometry = new THREE.SphereGeometry(500, 60, 40);
     geometry.scale(-1, 1, 1);
-    
-    // 最初は真っ暗な素材
     const material = new THREE.MeshBasicMaterial({ color: 0x000000 });
     sphere = new THREE.Mesh(geometry, material);
     scene.add(sphere);
@@ -129,24 +121,24 @@ function init() {
 
 function setupInteractions() {
     const container = document.getElementById('viewer-container');
-    
-    // タップでUIトグル（ドラッグ中は反応しないように調整）
-    let tapStartTime;
+    let tapStartX, tapStartY, tapStartTime;
+
     container.addEventListener('pointerdown', (e) => {
+        tapStartX = e.clientX;
+        tapStartY = e.clientY;
         tapStartTime = Date.now();
         isUserInteracting = true;
-        const startX = e.clientX, startY = e.clientY, startLon = lon, startLat = lat;
         
+        const sLon = lon, sLat = lat;
         const move = (ev) => {
-            lon = (startX - ev.clientX) * 0.15 + startLon;
-            lat = (ev.clientY - startY) * 0.15 + startLat;
+            lon = (tapStartX - ev.clientX) * 0.15 + sLon;
+            lat = (ev.clientY - tapStartY) * 0.15 + sLat;
         };
-        
-        const up = () => {
+        const up = (ev) => {
             isUserInteracting = false;
+            const dist = Math.hypot(ev.clientX - tapStartX, ev.clientY - tapStartY);
             const duration = Date.now() - tapStartTime;
-            // 短いタップかつ移動が少ない場合のみUIを隠す
-            if (duration < 250) {
+            if (dist < 5 && duration < 250) {
                 document.body.classList.toggle('ui-hidden');
             }
             document.removeEventListener('pointermove', move);
@@ -163,9 +155,8 @@ function setupInteractions() {
 }
 
 function setupFeatures() {
-    const input = document.getElementById('file-input');
-    document.getElementById('upload-btn').onclick = (e) => { e.stopPropagation(); input.click(); };
-    input.onchange = (e) => handleFiles(e.target.files);
+    document.getElementById('upload-btn').onclick = (e) => { e.stopPropagation(); document.getElementById('file-input').click(); };
+    document.getElementById('file-input').onchange = (e) => handleFiles(e.target.files);
 
     document.getElementById('rotate-btn').onclick = (e) => {
         e.stopPropagation();
@@ -184,16 +175,14 @@ function setupFeatures() {
     document.getElementById('gyro-btn').onclick = (e) => {
         e.stopPropagation();
         if (!useGyro) requestGyroPermission(e.target);
-        else { useGyro = false; e.target.classList.remove('active'); }
+        else { useGyro = false; e.target.classList.remove('active'); startAlpha = null; }
     };
 }
 
 async function requestGyroPermission(btn) {
     if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-        try {
-            const permission = await DeviceOrientationEvent.requestPermission();
-            if (permission === 'granted') enableGyro(btn);
-        } catch (e) { console.error(e); }
+        const permission = await DeviceOrientationEvent.requestPermission();
+        if (permission === 'granted') enableGyro(btn);
     } else { enableGyro(btn); }
 }
 
@@ -201,48 +190,41 @@ function enableGyro(btn) {
     useGyro = true;
     btn.classList.add('active');
     window.addEventListener('deviceorientation', (e) => {
-        if (!useGyro) return;
-        if (deviceAlpha === 0) deviceAlpha = e.alpha;
-        lon = (e.alpha - deviceAlpha) + (e.gamma * 0.5);
+        if (!useGyro || isUserInteracting) return;
+        // 初回のみ基準方位をリセット
+        if (startAlpha === null) {
+            startAlpha = e.alpha;
+            startLon = lon;
+        }
+        // 角度を計算（デバイスを縦に持った状態を基準に補正）
+        lon = (startAlpha - e.alpha) + startLon;
         lat = e.beta - 90;
     }, true);
 }
 
 function handleFiles(files) {
-    if (!files || files.length === 0) return;
     const listContainer = document.getElementById('image-items');
-    const sideList = document.getElementById('side-list');
-    sideList.classList.add('active');
-    
+    document.getElementById('side-list').classList.add('active');
     Array.from(files).forEach((file, index) => {
         const reader = new FileReader();
         reader.onload = (e) => {
             const item = document.createElement('div');
             item.className = 'list-item';
             item.textContent = file.name;
-            item.onclick = (event) => { 
-                event.stopPropagation(); 
-                loadToViewer(e.target.result, item); 
-            };
+            item.onclick = (ev) => { ev.stopPropagation(); loadToViewer(e.target.result, item); };
             listContainer.appendChild(item);
-            // 最初の1枚を確実に表示
-            if (index === 0 && document.querySelectorAll('.list-item').length === 1) {
-                loadToViewer(e.target.result, item);
-            }
+            if (index === 0 && document.querySelectorAll('.list-item').length === 1) loadToViewer(e.target.result, item);
         };
         reader.readAsDataURL(file);
     });
 }
 
 function loadToViewer(src, element) {
-    const loader = new THREE.TextureLoader();
-    loader.load(src, (texture) => {
+    new THREE.TextureLoader().load(src, (texture) => {
         texture.colorSpace = THREE.SRGBColorSpace;
-        // 【重要】素材を再設定して確実に明るさを出す
         sphere.material.map = texture;
-        sphere.material.color.set(0xffffff); // 確実に白（100%発光）に
+        sphere.material.color.set(0xffffff); 
         sphere.material.needsUpdate = true;
-        
         document.getElementById('drop-zone').classList.add('hidden');
         document.querySelectorAll('.list-item').forEach(el => el.classList.remove('active'));
         if(element) element.classList.add('active');
