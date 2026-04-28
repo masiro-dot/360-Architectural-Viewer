@@ -10,10 +10,14 @@
             --bg: #000000;
             --accent: #c9a96e;
             --text: #ffffff;
-            --panel-bg: rgba(0, 0, 0, 0.85);
+            --panel-bg: rgba(10, 10, 10, 0.85);
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; height: 100vh; overflow: hidden; }
+
+        /* UI全体のフェード管理 */
+        .ui-element { transition: opacity 0.4s ease, visibility 0.4s ease; opacity: 1; visibility: visible; }
+        .ui-hidden .ui-element { opacity: 0; visibility: hidden; pointer-events: none; }
 
         header {
             position: absolute; top: 0; width: 100%; padding: 20px 30px;
@@ -22,69 +26,62 @@
         .logo { font-family: 'Cormorant Garamond', serif; font-size: 26px; letter-spacing: 0.1em; pointer-events: auto; }
         .logo span { color: var(--accent); font-style: italic; margin-left: 4px; font-size: 20px; }
 
-        #viewer-container { width: 100%; height: 100vh; cursor: grab; }
+        #viewer-container { width: 100%; height: 100vh; cursor: grab; background: #000; }
 
-        /* サイドバー */
         #side-list {
-            position: absolute; left: 20px; top: 80px; width: 220px; max-height: 75vh;
+            position: absolute; left: 20px; top: 80px; width: 220px; max-height: 60vh;
             background: var(--panel-bg); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
             border: 1px solid rgba(255,255,255,0.1); padding: 15px; border-radius: 4px;
-            overflow-y: auto; z-index: 100; transition: 0.3s;
+            overflow-y: auto; z-index: 110; display: none;
         }
-        .list-header { font-size: 9px; color: var(--accent); letter-spacing: 0.2em; margin-bottom: 12px; border-bottom: 1px solid rgba(201,169,110,0.3); padding-bottom: 5px; }
-        .list-item {
-            font-size: 11px; padding: 10px 5px; border-bottom: 1px solid rgba(255,255,255,0.05);
-            cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.6; transition: 0.2s;
-        }
-        .list-item:hover, .list-item.active { opacity: 1; color: var(--accent); background: rgba(255,255,255,0.03); }
+        #side-list.active { display: block; }
+        .list-item { font-size: 11px; padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.6; }
+        .list-item:hover, .list-item.active { opacity: 1; color: var(--accent); background: rgba(255,255,255,0.05); }
 
-        /* 操作パネル */
         #ui-panel {
             position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
             background: var(--panel-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255,255,255,0.1); padding: 10px 30px;
-            display: flex; align-items: center; gap: 25px; border-radius: 50px; z-index: 100;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.1); padding: 10px 25px;
+            display: flex; align-items: center; gap: 15px; border-radius: 50px; z-index: 120;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: fit-content; max-width: 95vw;
         }
-        .btn-group { display: flex; gap: 20px; }
+        .btn-group { display: flex; gap: 12px; overflow-x: auto; scrollbar-width: none; }
         button {
-            background: transparent; border: none; color: var(--text); font-size: 11px;
+            background: transparent; border: none; color: var(--text); font-size: 10px;
             letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; transition: 0.2s;
+            padding: 5px 4px; white-space: nowrap;
         }
         button:hover { color: var(--accent); }
-        button.active { color: var(--accent); font-weight: bold; }
-        #rec-btn.recording { color: #ff4444; animation: blink 1s infinite; }
-        @keyframes blink { 50% { opacity: 0.5; } }
-
-        #drop-zone {
-            position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-            background: rgba(0,0,0,0.85); z-index: 50; transition: 0.6s ease;
-        }
-        #drop-zone.hidden { opacity: 0; pointer-events: none; }
-        .hidden { display: none; }
+        button.active { color: var(--accent); font-weight: bold; border-bottom: 1px solid var(--accent); }
+        
+        #drop-zone { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.85); z-index: 200; pointer-events: none; }
+        #drop-zone.hidden { opacity: 0; visibility: hidden; }
+        
+        /* ヘルプメッセージ */
+        #hint { position: absolute; bottom: 85px; left: 50%; transform: translateX(-50%); font-size: 10px; color: var(--accent); opacity: 0.6; pointer-events: none; }
     </style>
 </head>
 <body>
 
-<header>
+<header class="ui-element">
     <div class="logo">masiro<span>360°</span></div>
 </header>
 
-<div id="side-list" class="hidden">
-    <div class="list-header">PROJECT GALLERY</div>
+<div id="side-list" class="ui-element">
     <div id="image-items"></div>
 </div>
 
 <div id="viewer-container">
-    <div id="drop-zone">
-        <div style="font-family: 'Cormorant Garamond', serif; font-size: 24px; color: var(--accent); font-style: italic;">Import Masterpieces</div>
-    </div>
+    <div id="drop-zone"><div style="font-family: 'Cormorant Garamond', serif; font-size: 28px; color: var(--accent);">Open Your Vision</div></div>
 </div>
 
-<div id="ui-panel">
+<div id="hint" class="ui-element">Tap background to toggle UI</div>
+
+<div id="ui-panel" class="ui-element">
     <div class="btn-group">
         <button id="upload-btn">Import</button>
         <button id="rotate-btn" class="active">Auto</button>
+        <button id="gyro-btn">Gyro</button>
         <button id="shot-btn">Snapshot</button>
         <button id="rec-btn">Record</button>
     </div>
@@ -100,8 +97,11 @@ import * as THREE from 'three';
 
 let scene, camera, renderer, sphere;
 let lon = 0, lat = 0, phi = 0, theta = 0;
-let isUserInteracting = false, autoRotate = true;
+let isUserInteracting = false, autoRotate = true, useGyro = false;
 let mediaRecorder, recordedChunks = [];
+
+// ジャイロ用
+let deviceAlpha = 0, deviceBeta = 0, deviceGamma = 0;
 
 init();
 animate();
@@ -129,6 +129,14 @@ function init() {
 
 function setupInteractions() {
     const container = document.getElementById('viewer-container');
+    
+    // UIのトグル機能
+    container.addEventListener('click', (e) => {
+        if (!isUserInteracting) {
+            document.body.classList.toggle('ui-hidden');
+        }
+    });
+
     container.addEventListener('pointerdown', (e) => {
         isUserInteracting = true;
         const startX = e.clientX, startY = e.clientY, startLon = lon, startLat = lat;
@@ -142,25 +150,20 @@ function setupInteractions() {
     });
 
     container.addEventListener('wheel', (e) => {
-        camera.fov = Math.min(90, Math.max(30, camera.fov + e.deltaY * 0.05));
+        camera.fov = Math.min(95, Math.max(25, camera.fov + e.deltaY * 0.05));
         camera.updateProjectionMatrix();
     });
 }
 
 function setupFeatures() {
     const input = document.getElementById('file-input');
-    const uploadBtn = document.getElementById('upload-btn');
-    uploadBtn.onclick = () => input.click();
-    
-    input.addEventListener('change', (e) => {
-        if (e.target.files.length > 0) handleFiles(e.target.files);
-    });
+    document.getElementById('upload-btn').onclick = () => input.click();
+    input.onchange = (e) => handleFiles(e.target.files);
 
-    window.addEventListener('dragover', (e) => e.preventDefault());
-    window.addEventListener('drop', (e) => {
-        e.preventDefault();
-        if (e.dataTransfer.files.length > 0) handleFiles(e.dataTransfer.files);
-    });
+    document.getElementById('rotate-btn').onclick = function() {
+        autoRotate = !autoRotate;
+        this.classList.toggle('active');
+    };
 
     document.getElementById('shot-btn').onclick = () => {
         const link = document.createElement('a');
@@ -169,49 +172,65 @@ function setupFeatures() {
         link.click();
     };
 
-    document.getElementById('rec-btn').onclick = function() {
-        if (!mediaRecorder || mediaRecorder.state === 'inactive') {
-            startRecording(this);
+    // ジャイロ有効化
+    document.getElementById('gyro-btn').onclick = function() {
+        if (!useGyro) {
+            requestGyroPermission(this);
         } else {
-            mediaRecorder.stop();
-            this.classList.remove('recording');
-            this.innerText = 'Record';
+            useGyro = false;
+            this.classList.remove('active');
         }
-    };
-
-    document.getElementById('rotate-btn').onclick = function() {
-        autoRotate = !autoRotate;
-        this.classList.toggle('active');
     };
 }
 
+async function requestGyroPermission(btn) {
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+        try {
+            const permission = await DeviceOrientationEvent.requestPermission();
+            if (permission === 'granted') {
+                enableGyro(btn);
+            }
+        } catch (e) { alert("Gyro error: " + e); }
+    } else {
+        enableGyro(btn);
+    }
+}
+
+function enableGyro(btn) {
+    useGyro = true;
+    btn.classList.add('active');
+    window.addEventListener('deviceorientation', (e) => {
+        if (!useGyro) return;
+        // 初回の基準値を設定
+        if (deviceAlpha === 0) deviceAlpha = e.alpha;
+        lon = (e.alpha - deviceAlpha) + (e.gamma * 0.5); // 簡易的な補正
+        lat = e.beta - 90;
+    }, true);
+}
+
 function handleFiles(files) {
-    const fileArray = Array.from(files);
     const listContainer = document.getElementById('image-items');
-    document.getElementById('side-list').classList.remove('hidden');
+    const sideList = document.getElementById('side-list');
+    sideList.classList.add('active');
     
-    fileArray.forEach((file, index) => {
+    Array.from(files).forEach((file, index) => {
         const reader = new FileReader();
-        reader.onload = (event) => {
+        reader.onload = (e) => {
             const item = document.createElement('div');
             item.className = 'list-item';
             item.textContent = file.name;
-            item.onclick = () => loadToViewer(event.target.result, item);
+            item.onclick = (event) => { event.stopPropagation(); loadToViewer(e.target.result, item); };
             listContainer.appendChild(item);
-            
-            // 最初の画像、または追加した最初の画像を自動で表示
-            if (index === 0) loadToViewer(event.target.result, item);
+            if (index === 0 && document.querySelectorAll('.list-item').length === 1) loadToViewer(e.target.result, item);
         };
         reader.readAsDataURL(file);
     });
 }
 
 function loadToViewer(src, element) {
-    const loader = new THREE.TextureLoader();
-    loader.load(src, (texture) => {
+    new THREE.TextureLoader().load(src, (texture) => {
         texture.colorSpace = THREE.SRGBColorSpace;
         sphere.material.map = texture;
-        sphere.material.color.set(0xffffff);
         sphere.material.needsUpdate = true;
         document.getElementById('drop-zone').classList.add('hidden');
         document.querySelectorAll('.list-item').forEach(el => el.classList.remove('active'));
@@ -219,26 +238,9 @@ function loadToViewer(src, element) {
     });
 }
 
-function startRecording(btn) {
-    recordedChunks = [];
-    const stream = renderer.domElement.captureStream(30);
-    mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9' });
-    mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
-    mediaRecorder.onstop = () => {
-        const blob = new Blob(recordedChunks, { type: 'video/webm' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = `masiro_video_${Date.now()}.webm`;
-        a.click();
-    };
-    mediaRecorder.start();
-    btn.classList.add('recording');
-    btn.innerText = 'Stop';
-}
-
 function animate() {
     requestAnimationFrame(animate);
-    if (autoRotate && !isUserInteracting) lon += 0.08;
+    if (autoRotate && !isUserInteracting && !useGyro) lon += 0.08;
     lat = Math.max(-85, Math.min(85, lat));
     phi = THREE.MathUtils.degToRad(90 - lat);
     theta = THREE.MathUtils.degToRad(lon);
