@@ -3,74 +3,65 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>masiro | High-Bright 360° Viewer</title>
+    <title>masiro | 360° Panorama Viewer</title>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital@1&family=Inter:wght@300;400&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-deep: #050505;
-            --ui-bg: rgba(10, 10, 10, 0.9);
+            --bg: #000000;
             --accent: #c9a96e;
             --text: #ffffff;
+            --panel-bg: rgba(0, 0, 0, 0.7);
         }
-
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: var(--bg-deep); color: var(--text); font-family: 'Inter', sans-serif; height: 100vh; overflow: hidden; }
+        body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; height: 100vh; overflow: hidden; }
 
         header {
-            position: absolute; top: 0; width: 100%; padding: 25px 40px;
-            display: flex; align-items: baseline; gap: 15px; z-index: 100; pointer-events: none;
-            background: linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, transparent 100%);
+            position: absolute; top: 0; width: 100%; padding: 20px 30px;
+            display: flex; align-items: baseline; gap: 12px; z-index: 100; pointer-events: none;
         }
-        .logo { font-family: 'Cormorant Garamond', serif; font-size: 26px; letter-spacing: 0.12em; color: var(--text); text-shadow: 0 2px 10px rgba(0,0,0,0.5); }
-        .logo span { color: var(--accent); }
+        /* ロゴを masiro に変更 */
+        .logo { font-family: 'Cormorant Garamond', serif; font-size: 26px; letter-spacing: 0.1em; text-transform: lowercase; }
+        .logo span { color: var(--accent); font-style: italic; margin-left: 4px; font-size: 20px; }
 
         #viewer-container { width: 100%; height: 100vh; cursor: grab; }
 
         #ui-panel {
-            position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
-            background: var(--ui-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255,255,255,0.1); padding: 12px 30px;
-            display: flex; align-items: center; gap: 25px; border-radius: 40px; z-index: 100;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            background: var(--panel-bg); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(255,255,255,0.1); padding: 8px 24px;
+            display: flex; align-items: center; gap: 20px; border-radius: 50px; z-index: 100;
         }
-
-        .file-info { font-size: 11px; letter-spacing: 0.1em; color: var(--accent); text-transform: uppercase; font-weight: bold; }
-
+        .file-info { font-size: 10px; letter-spacing: 0.1em; color: var(--accent); text-transform: uppercase; }
         .btn-group { display: flex; gap: 15px; }
         button {
-            background: transparent; border: none; color: var(--text); font-size: 11px;
-            letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; padding: 5px 0; transition: 0.3s;
-            border-bottom: 2px solid transparent;
+            background: transparent; border: none; color: var(--text); font-size: 10px;
+            letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; padding: 5px 0;
         }
-        button:hover { color: var(--accent); }
-        button.active { border-bottom: 2px solid var(--accent); }
+        button.active { color: var(--accent); border-bottom: 1px solid var(--accent); }
 
         #drop-zone {
-            position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-            background: rgba(0,0,0,0.85); z-index: 50; transition: 0.8s ease-in-out;
+            position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.9); z-index: 50; transition: 0.6s ease;
         }
-        #drop-zone.hidden { opacity: 0; pointer-events: none; transform: scale(1.1); }
-        .drop-title { font-family: 'Cormorant Garamond', serif; font-size: 32px; font-style: italic; margin-bottom: 10px; color: var(--accent); }
+        #drop-zone.hidden { opacity: 0; pointer-events: none; }
+        .drop-text { font-family: 'Cormorant Garamond', serif; font-size: 24px; font-style: italic; color: var(--accent); }
     </style>
 </head>
 <body>
 
 <header>
-    <div class="logo">masiro <span>360°</span></div>
+    <div class="logo">masiro<span>360°</span></div>
 </header>
 
 <div id="viewer-container">
-    <div id="drop-zone">
-        <div class="drop-title">Seamless Vision</div>
-        <p style="font-size: 12px; color: #888; letter-spacing: 0.2em;">DRAG & DROP PANORAMA</p>
-    </div>
+    <div id="drop-zone"><div class="drop-text">Open Your Perspective</div></div>
 </div>
 
 <div id="ui-panel">
-    <div class="file-info" id="file-name">Ready for Gallery</div>
+    <div class="file-info" id="file-name">Waiting for Image...</div>
     <div class="btn-group">
-        <button id="rotate-btn" class="active">Auto Rotation</button>
-        <button id="upload-btn">Import File</button>
+        <button id="rotate-btn" class="active">Rotate</button>
+        <button id="upload-btn">Import</button>
     </div>
     <input type="file" id="file-input" accept="image/*" style="display:none;">
 </div>
@@ -102,22 +93,17 @@ function init() {
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
     
-    // 【最重要】明るさの設定を大幅に強化
-    renderer.outputColorSpace = THREE.SRGBColorSpace; 
-    renderer.toneMapping = THREE.LinearToneMapping; // パースの直感的な明るさを優先
-    renderer.toneMappingExposure = 1.8; // 以前の1.2から1.8へ大幅アップ
-
+    // 【明るさ設定】補正を一切通さず、テクスチャのピクセルをそのまま出力
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.NoToneMapping; 
+    
     document.getElementById('viewer-container').appendChild(renderer.domElement);
-
-    // 全体を照らす光を追加
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
-    scene.add(ambientLight);
 
     const geometry = new THREE.SphereGeometry(500, 60, 40);
     geometry.scale(-1, 1, 1);
     
-    // 初期状態の球体（テクスチャが来るまで真っ黒にしない）
-    const material = new THREE.MeshBasicMaterial({ color: 0x333333 });
+    // 画像そのものの色味を100%出すため、光の影響を受けない素材を使用
+    const material = new THREE.MeshBasicMaterial({ color: 0x000000 });
     sphere = new THREE.Mesh(geometry, material);
     scene.add(sphere);
 
@@ -125,15 +111,28 @@ function init() {
     setupFileUpload();
 }
 
+function loadTexture(file) {
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        new THREE.TextureLoader().load(e.target.result, (texture) => {
+            texture.colorSpace = THREE.SRGBColorSpace;
+            sphere.material.map = texture;
+            sphere.material.color.set(0xffffff); // 発光を最大に
+            sphere.material.needsUpdate = true;
+            document.getElementById('drop-zone').classList.add('hidden');
+            document.getElementById('file-name').textContent = file.name;
+        });
+    };
+    reader.readAsDataURL(file);
+}
+
 function setupInteractions() {
     const container = document.getElementById('viewer-container');
     container.addEventListener('pointerdown', (e) => {
         isUserInteracting = true;
-        const startX = e.clientX;
-        const startY = e.clientY;
-        const startLon = lon;
-        const startLat = lat;
-        
+        const startX = e.clientX, startY = e.clientY;
+        const startLon = lon, startLat = lat;
         const onPointerMove = (ev) => {
             lon = (startX - ev.clientX) * 0.15 + startLon;
             lat = (ev.clientY - startY) * 0.15 + startLat;
@@ -146,37 +145,15 @@ function setupInteractions() {
         document.addEventListener('pointermove', onPointerMove);
         document.addEventListener('pointerup', onPointerUp);
     });
-
     container.addEventListener('wheel', (e) => {
         camera.fov = Math.min(85, Math.max(20, camera.fov + e.deltaY * 0.05));
         camera.updateProjectionMatrix();
     });
 }
 
-function loadTexture(file) {
-    if(!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        const loader = new THREE.TextureLoader();
-        loader.load(e.target.result, (texture) => {
-            // テクスチャの設定を高品質に
-            texture.colorSpace = THREE.SRGBColorSpace;
-            texture.minFilter = THREE.LinearFilter;
-            texture.magFilter = THREE.LinearFilter;
-            
-            sphere.material.map = texture;
-            sphere.material.needsUpdate = true;
-            document.getElementById('drop-zone').classList.add('hidden');
-            document.getElementById('file-name').textContent = file.name;
-        });
-    };
-    reader.readAsDataURL(file);
-}
-
 function setupFileUpload() {
     const input = document.getElementById('file-input');
-    const uploadBtn = document.getElementById('upload-btn');
-    uploadBtn.onclick = () => input.click();
+    document.getElementById('upload-btn').onclick = () => input.click();
     input.onchange = (e) => loadTexture(e.target.files[0]);
     window.ondragover = (e) => e.preventDefault();
     window.ondrop = (e) => { e.preventDefault(); loadTexture(e.dataTransfer.files[0]); };
