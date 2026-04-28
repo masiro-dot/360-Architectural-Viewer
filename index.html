@@ -10,12 +10,11 @@
             --bg: #000000;
             --accent: #c9a96e;
             --text: #ffffff;
-            --panel-bg: #1a1a1a; /* 明確に明るいグレーにして視認性を確保 */
+            --panel-bg: #1a1a1a;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; height: 100vh; overflow: hidden; }
 
-        /* 起動画面：ここでジャイロの許可を取る */
         #entry-overlay {
             position: absolute; inset: 0; background: var(--bg); z-index: 5000;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -26,9 +25,7 @@
             background: transparent; font-family: 'Cormorant Garamond', serif; font-size: 24px;
             cursor: pointer; transition: 0.3s;
         }
-        .enter-btn:hover { background: var(--accent); color: #000; }
 
-        /* UI管理 */
         .ui-element { opacity: 1 !important; visibility: visible !important; transition: opacity 0.3s ease; z-index: 1000; }
         .ui-hidden .ui-element { opacity: 0 !important; visibility: hidden !important; pointer-events: none; }
 
@@ -39,7 +36,7 @@
         .logo { font-family: 'Cormorant Garamond', serif; font-size: 26px; letter-spacing: 0.1em; pointer-events: auto; }
         .logo span { color: var(--accent); font-style: italic; margin-left: 4px; font-size: 20px; }
 
-        #viewer-container { width: 100%; height: 100vh; cursor: grab; background: #0a0a0a; }
+        #viewer-container { width: 100%; height: 100vh; background: #0a0a0a; }
 
         #side-list {
             position: absolute; left: 20px; top: 85px; width: 240px; max-height: 40vh;
@@ -49,19 +46,17 @@
         #side-list.active { display: block; }
         .list-item { font-size: 11px; padding: 12px; border-bottom: 1px solid #333; cursor: pointer; color: #fff; font-weight: bold; }
 
-        /* 操作パネルの視認性強化 */
         #ui-panel {
             position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
             background: var(--panel-bg); border: 2px solid var(--accent); 
-            padding: 18px 35px; border-radius: 60px; display: flex; align-items: center; gap: 20px;
+            padding: 15px 30px; border-radius: 60px; display: flex; align-items: center; gap: 20px;
             box-shadow: 0 10px 50px rgba(0,0,0,1);
         }
-        .btn-group { display: flex; gap: 15px; }
         button {
             background: transparent; border: none; color: #ffffff !important; 
-            font-size: 13px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;
+            font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;
         }
-        button.active { color: var(--accent) !important; }
+        button.active { color: var(--accent) !important; text-decoration: underline; }
         
         #drop-zone { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 500; pointer-events: none; }
         #drop-zone.hidden { display: none; }
@@ -83,16 +78,14 @@
 </div>
 
 <div id="viewer-container">
-    <div id="drop-zone"><div style="font-family: 'Cormorant Garamond', serif; font-size: 28px; color: var(--accent);">Drag & Drop Panorama</div></div>
+    <div id="drop-zone"><div style="font-family: 'Cormorant Garamond', serif; font-size: 24px; color: var(--accent);">Tap Import to start</div></div>
 </div>
 
 <div id="ui-panel" class="ui-element">
-    <div class="btn-group">
-        <button id="upload-btn">Import</button>
-        <button id="rotate-btn" class="active">Auto</button>
-        <button id="gyro-btn">Gyro</button>
-        <button id="shot-btn">Snapshot</button>
-    </div>
+    <button id="upload-btn">Import</button>
+    <button id="rotate-btn" class="active">Auto</button>
+    <button id="gyro-btn">Gyro</button>
+    <button id="shot-btn">Snapshot</button>
     <input type="file" id="file-input" accept="image/*" multiple style="display:none;">
 </div>
 
@@ -106,7 +99,7 @@ import * as THREE from 'three';
 let scene, camera, renderer, sphere;
 let lon = 0, lat = 0;
 let isUserInteracting = false, autoRotate = true, useGyro = false;
-let orient = 0;
+let baseAlpha = null;
 
 init();
 animate();
@@ -136,6 +129,7 @@ function setupInteractions() {
     let tapStartX, tapStartY, tapStartTime;
 
     container.addEventListener('pointerdown', (e) => {
+        if (useGyro) return; // ジャイロ中は手動操作を無効化
         tapStartX = e.clientX; tapStartY = e.clientY;
         tapStartTime = Date.now();
         isUserInteracting = true;
@@ -162,7 +156,12 @@ function setupFeatures() {
     const startBtn = document.getElementById('start-btn');
     startBtn.onclick = async () => {
         document.getElementById('entry-overlay').classList.add('hidden');
-        // iOSのジャイロ許可リクエスト
+        
+        // フルスクリーン要求
+        const doc = document.documentElement;
+        if (doc.requestFullscreen) doc.requestFullscreen();
+        else if (doc.webkitRequestFullscreen) doc.webkitRequestFullscreen();
+
         if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
             await DeviceOrientationEvent.requestPermission();
         }
@@ -177,6 +176,7 @@ function setupFeatures() {
         e.stopPropagation();
         useGyro = !useGyro;
         this.classList.toggle('active');
+        baseAlpha = null; // リセット
         if (useGyro) {
             window.addEventListener('deviceorientation', onDeviceOrientation, true);
         } else {
@@ -187,10 +187,20 @@ function setupFeatures() {
 
 function onDeviceOrientation(e) {
     if (!useGyro || isUserInteracting) return;
-    // シンプルかつ確実な角度取得
-    // beta: 上下傾き (-90 to 90), gamma: 左右傾き (-90 to 90), alpha: 方角 (0 to 360)
-    lat = e.beta - 90;
-    lon = -e.alpha;
+
+    // 画面の向き（縦0度、横90度など）を取得
+    const orientation = window.orientation || 0;
+
+    if (orientation === 0) { // 縦持ち
+        lat = e.beta - 90;
+        lon = -e.alpha;
+    } else if (orientation === 90) { // 横持ち（左回転）
+        lat = -e.gamma - 90;
+        lon = -e.alpha - 90;
+    } else if (orientation === -90) { // 横持ち（右回転）
+        lat = e.gamma - 90;
+        lon = -e.alpha + 90;
+    }
 }
 
 function handleFiles(files) {
@@ -225,12 +235,20 @@ function loadToViewer(src, element) {
 function animate() {
     requestAnimationFrame(animate);
     if (!useGyro && autoRotate && !isUserInteracting) lon += 0.1;
+    
     lat = Math.max(-85, Math.min(85, lat));
     const phi = THREE.MathUtils.degToRad(90 - lat);
     const theta = THREE.MathUtils.degToRad(lon);
+    
     camera.lookAt(500 * Math.sin(phi) * Math.cos(theta), 500 * Math.cos(phi), 500 * Math.sin(phi) * Math.sin(theta));
     renderer.render(scene, camera);
 }
+
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
 </script>
 </body>
 </html>
