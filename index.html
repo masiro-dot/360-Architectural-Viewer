@@ -3,21 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>masiro | 360° Studio Pro</title>
+    <title>masiro | 360° Studio</title>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital@1&family=Inter:wght@400;600&display=swap" rel="stylesheet">
     <style>
         :root {
             --bg: #000000;
             --accent: #c9a96e;
             --text: #ffffff;
-            --panel-bg: rgba(15, 15, 15, 0.95); /* パネルを濃くして視認性アップ */
+            --panel-bg: rgba(20, 20, 20, 0.98); /* 視認性を極限まで高めるためほぼ不透明に */
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; height: 100vh; overflow: hidden; }
 
-        /* UI管理：初期状態は opacity 1 */
-        .ui-element { transition: opacity 0.3s ease; opacity: 1; visibility: visible; z-index: 1000; }
-        .ui-hidden .ui-element { opacity: 0; visibility: hidden; pointer-events: none; }
+        /* UIの初期表示を確実に「見える」状態にする */
+        .ui-element { opacity: 1 !important; visibility: visible !important; transition: opacity 0.3s ease; z-index: 1000; }
+        .ui-hidden .ui-element { opacity: 0 !important; visibility: hidden !important; pointer-events: none; }
 
         header {
             position: absolute; top: 0; width: 100%; padding: 25px 30px;
@@ -29,31 +29,30 @@
         #viewer-container { width: 100%; height: 100vh; cursor: grab; background: #000; }
 
         #side-list {
-            position: absolute; left: 20px; top: 85px; width: 220px; max-height: 50vh;
-            background: var(--panel-bg); border: 1px solid rgba(255,255,255,0.15); 
+            position: absolute; left: 20px; top: 85px; width: 240px; max-height: 50vh;
+            background: var(--panel-bg); border: 1px solid rgba(255,255,255,0.2); 
             padding: 15px; border-radius: 8px; overflow-y: auto; display: none;
         }
         #side-list.active { display: block; }
-        .list-item { font-size: 11px; padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #ccc; }
-        .list-item:hover, .list-item.active { color: var(--accent); background: rgba(201, 169, 110, 0.1); }
+        .list-item { font-size: 11px; padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff; }
+        .list-item:hover, .list-item.active { color: var(--accent); background: rgba(201, 169, 110, 0.15); }
 
         #ui-panel {
             position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
-            background: var(--panel-bg); border: 1px solid rgba(255,255,255,0.2);
-            padding: 15px 35px; border-radius: 60px; display: flex; align-items: center; gap: 20px;
-            box-shadow: 0 15px 45px rgba(0,0,0,0.8);
+            background: var(--panel-bg); border: 2px solid var(--accent); /* 枠線をつけて存在を強調 */
+            padding: 15px 30px; border-radius: 60px; display: flex; align-items: center; gap: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.9);
         }
         .btn-group { display: flex; gap: 15px; }
         button {
-            background: transparent; border: none; color: var(--text); font-size: 11px; font-weight: 600;
-            letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; padding: 8px 5px;
+            background: transparent; border: none; color: #ffffff; font-size: 12px; font-weight: 600;
+            letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; padding: 10px 5px;
         }
-        button.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
+        button.active { color: var(--accent); text-decoration: underline; }
         
         #drop-zone { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.85); z-index: 2000; pointer-events: none; }
         #drop-zone.hidden { opacity: 0; visibility: hidden; }
-        
-        #hint { position: absolute; bottom: 110px; left: 50%; transform: translateX(-50%); font-size: 11px; color: var(--accent); font-weight: 400; pointer-events: none; }
+        #hint { position: absolute; bottom: 115px; left: 50%; transform: translateX(-50%); font-size: 11px; color: var(--accent); pointer-events: none; }
     </style>
 </head>
 <body>
@@ -70,7 +69,7 @@
     <div id="drop-zone"><div style="font-family: 'Cormorant Garamond', serif; font-size: 28px; color: var(--accent);">Open Your Vision</div></div>
 </div>
 
-<div id="hint" class="ui-element">背景をタップしてUIの表示切替</div>
+<div id="hint" class="ui-element">タップしてUI表示切替</div>
 
 <div id="ui-panel" class="ui-element">
     <div class="btn-group">
@@ -90,9 +89,12 @@
 import * as THREE from 'three';
 
 let scene, camera, renderer, sphere;
-let lon = 0, lat = 0, phi = 0, theta = 0;
+let lon = 0, lat = 0;
 let isUserInteracting = false, autoRotate = true, useGyro = false;
-let startLon = 0, startAlpha = null;
+
+// ジャイロ制御用のクォータニオン
+const deviceQuaternion = new THREE.Quaternion();
+const worldQuaternion = new THREE.Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5)); // -90deg X-axis
 
 init();
 animate();
@@ -111,8 +113,7 @@ function init() {
 
     const geometry = new THREE.SphereGeometry(500, 60, 40);
     geometry.scale(-1, 1, 1);
-    const material = new THREE.MeshBasicMaterial({ color: 0x000000 });
-    sphere = new THREE.Mesh(geometry, material);
+    sphere = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: 0x000000 }));
     scene.add(sphere);
 
     setupInteractions();
@@ -124,11 +125,9 @@ function setupInteractions() {
     let tapStartX, tapStartY, tapStartTime;
 
     container.addEventListener('pointerdown', (e) => {
-        tapStartX = e.clientX;
-        tapStartY = e.clientY;
+        tapStartX = e.clientX; tapStartY = e.clientY;
         tapStartTime = Date.now();
         isUserInteracting = true;
-        
         const sLon = lon, sLat = lat;
         const move = (ev) => {
             lon = (tapStartX - ev.clientX) * 0.15 + sLon;
@@ -137,8 +136,7 @@ function setupInteractions() {
         const up = (ev) => {
             isUserInteracting = false;
             const dist = Math.hypot(ev.clientX - tapStartX, ev.clientY - tapStartY);
-            const duration = Date.now() - tapStartTime;
-            if (dist < 5 && duration < 250) {
+            if (dist < 5 && (Date.now() - tapStartTime) < 250) {
                 document.body.classList.toggle('ui-hidden');
             }
             document.removeEventListener('pointermove', move);
@@ -149,7 +147,7 @@ function setupInteractions() {
     });
 
     container.addEventListener('wheel', (e) => {
-        camera.fov = Math.min(95, Math.max(25, camera.fov + e.deltaY * 0.05));
+        camera.fov = Math.min(100, Math.max(20, camera.fov + e.deltaY * 0.05));
         camera.updateProjectionMatrix();
     });
 }
@@ -159,15 +157,14 @@ function setupFeatures() {
     document.getElementById('file-input').onchange = (e) => handleFiles(e.target.files);
 
     document.getElementById('rotate-btn').onclick = (e) => {
-        e.stopPropagation();
-        autoRotate = !autoRotate;
+        e.stopPropagation(); autoRotate = !autoRotate;
         e.target.classList.toggle('active');
     };
 
     document.getElementById('shot-btn').onclick = (e) => {
         e.stopPropagation();
         const link = document.createElement('a');
-        link.download = `masiro_shot_${Date.now()}.png`;
+        link.download = `masiro_${Date.now()}.png`;
         link.href = renderer.domElement.toDataURL('image/png');
         link.click();
     };
@@ -175,31 +172,34 @@ function setupFeatures() {
     document.getElementById('gyro-btn').onclick = (e) => {
         e.stopPropagation();
         if (!useGyro) requestGyroPermission(e.target);
-        else { useGyro = false; e.target.classList.remove('active'); startAlpha = null; }
+        else { useGyro = false; e.target.classList.remove('active'); }
     };
 }
 
 async function requestGyroPermission(btn) {
     if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-        const permission = await DeviceOrientationEvent.requestPermission();
-        if (permission === 'granted') enableGyro(btn);
-    } else { enableGyro(btn); }
+        const response = await DeviceOrientationEvent.requestPermission();
+        if (response === 'granted') {
+            window.addEventListener('deviceorientation', onDeviceOrientation, true);
+            useGyro = true; btn.classList.add('active');
+        }
+    } else {
+        window.addEventListener('deviceorientation', onDeviceOrientation, true);
+        useGyro = true; btn.classList.add('active');
+    }
 }
 
-function enableGyro(btn) {
-    useGyro = true;
-    btn.classList.add('active');
-    window.addEventListener('deviceorientation', (e) => {
-        if (!useGyro || isUserInteracting) return;
-        // 初回のみ基準方位をリセット
-        if (startAlpha === null) {
-            startAlpha = e.alpha;
-            startLon = lon;
-        }
-        // 角度を計算（デバイスを縦に持った状態を基準に補正）
-        lon = (startAlpha - e.alpha) + startLon;
-        lat = e.beta - 90;
-    }, true);
+function onDeviceOrientation(e) {
+    const alpha = e.alpha ? THREE.MathUtils.degToRad(e.alpha) : 0;
+    const beta = e.beta ? THREE.MathUtils.degToRad(e.beta) : 0;
+    const gamma = e.gamma ? THREE.MathUtils.degToRad(e.gamma) : 0;
+    const orient = window.orientation ? THREE.MathUtils.degToRad(window.orientation) : 0;
+
+    // クォータニオンを使用してデバイスの向きを計算
+    const zee = new THREE.Vector3(0, 0, 1);
+    const euler = new THREE.Euler(beta, alpha, -gamma, 'YXZ');
+    deviceQuaternion.setFromEuler(euler);
+    deviceQuaternion.multiply(new THREE.Quaternion().setFromAxisAngle(zee, -orient));
 }
 
 function handleFiles(files) {
@@ -233,11 +233,18 @@ function loadToViewer(src, element) {
 
 function animate() {
     requestAnimationFrame(animate);
-    if (autoRotate && !isUserInteracting && !useGyro) lon += 0.08;
-    lat = Math.max(-85, Math.min(85, lat));
-    phi = THREE.MathUtils.degToRad(90 - lat);
-    theta = THREE.MathUtils.degToRad(lon);
-    camera.lookAt(500 * Math.sin(phi) * Math.cos(theta), 500 * Math.cos(phi), 500 * Math.sin(phi) * Math.sin(theta));
+    
+    if (useGyro) {
+        camera.quaternion.copy(worldQuaternion);
+        camera.quaternion.multiply(deviceQuaternion);
+    } else {
+        if (autoRotate && !isUserInteracting) lon += 0.1;
+        lat = Math.max(-85, Math.min(85, lat));
+        const phi = THREE.MathUtils.degToRad(90 - lat);
+        const theta = THREE.MathUtils.degToRad(lon);
+        camera.lookAt(500 * Math.sin(phi) * Math.cos(theta), 500 * Math.cos(phi), 500 * Math.sin(phi) * Math.sin(theta));
+    }
+    
     renderer.render(scene, camera);
 }
 
