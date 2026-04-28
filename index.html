@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>masiro | 360° Studio</title>
+    <title>masiro | 360° Studio Pro</title>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital@1&family=Inter:wght@300;400&display=swap" rel="stylesheet">
     <style>
         :root {
             --bg: #000000;
             --accent: #c9a96e;
             --text: #ffffff;
-            --panel-bg: rgba(0, 0, 0, 0.8);
+            --panel-bg: rgba(0, 0, 0, 0.85);
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; height: 100vh; overflow: hidden; }
@@ -24,42 +24,44 @@
 
         #viewer-container { width: 100%; height: 100vh; cursor: grab; }
 
-        /* サイドバー：複数画像リスト */
+        /* サイドバー */
         #side-list {
-            position: absolute; left: 20px; top: 80px; width: 200px; max-height: 70vh;
-            background: var(--panel-bg); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            position: absolute; left: 20px; top: 80px; width: 220px; max-height: 75vh;
+            background: var(--panel-bg); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
             border: 1px solid rgba(255,255,255,0.1); padding: 15px; border-radius: 4px;
             overflow-y: auto; z-index: 100; transition: 0.3s;
         }
+        .list-header { font-size: 9px; color: var(--accent); letter-spacing: 0.2em; margin-bottom: 12px; border-bottom: 1px solid rgba(201,169,110,0.3); padding-bottom: 5px; }
         .list-item {
-            font-size: 11px; padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.05);
-            cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.7;
+            font-size: 11px; padding: 10px 5px; border-bottom: 1px solid rgba(255,255,255,0.05);
+            cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.6; transition: 0.2s;
         }
-        .list-item:hover, .list-item.active { opacity: 1; color: var(--accent); }
+        .list-item:hover, .list-item.active { opacity: 1; color: var(--accent); background: rgba(255,255,255,0.03); }
 
-        /* 下部操作パネル */
+        /* 操作パネル */
         #ui-panel {
             position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
-            background: var(--panel-bg); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
-            border: 1px solid rgba(255,255,255,0.1); padding: 10px 25px;
-            display: flex; align-items: center; gap: 20px; border-radius: 50px; z-index: 100;
+            background: var(--panel-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.1); padding: 10px 30px;
+            display: flex; align-items: center; gap: 25px; border-radius: 50px; z-index: 100;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
-        .btn-group { display: flex; gap: 15px; }
+        .btn-group { display: flex; gap: 20px; }
         button {
-            background: transparent; border: none; color: var(--text); font-size: 10px;
+            background: transparent; border: none; color: var(--text); font-size: 11px;
             letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; transition: 0.2s;
         }
         button:hover { color: var(--accent); }
         button.active { color: var(--accent); font-weight: bold; }
         #rec-btn.recording { color: #ff4444; animation: blink 1s infinite; }
-
         @keyframes blink { 50% { opacity: 0.5; } }
 
         #drop-zone {
             position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-            background: rgba(0,0,0,0.9); z-index: 50; transition: 0.6s ease;
+            background: rgba(0,0,0,0.85); z-index: 50; transition: 0.6s ease;
         }
         #drop-zone.hidden { opacity: 0; pointer-events: none; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
@@ -69,12 +71,14 @@
 </header>
 
 <div id="side-list" class="hidden">
-    <div style="font-size: 9px; color: #666; margin-bottom: 10px;">GALLERY (MAX 50)</div>
+    <div class="list-header">PROJECT GALLERY</div>
     <div id="image-items"></div>
 </div>
 
 <div id="viewer-container">
-    <div id="drop-zone"><div style="font-family: 'Cormorant Garamond', serif; font-size: 24px; color: var(--accent);">Drag & Drop Images</div></div>
+    <div id="drop-zone">
+        <div style="font-family: 'Cormorant Garamond', serif; font-size: 24px; color: var(--accent); font-style: italic;">Import Masterpieces</div>
+    </div>
 </div>
 
 <div id="ui-panel">
@@ -88,9 +92,7 @@
 </div>
 
 <script type="importmap">
-{
-    "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" }
-}
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
 </script>
 
 <script type="module">
@@ -99,7 +101,6 @@ import * as THREE from 'three';
 let scene, camera, renderer, sphere;
 let lon = 0, lat = 0, phi = 0, theta = 0;
 let isUserInteracting = false, autoRotate = true;
-let images = [];
 let mediaRecorder, recordedChunks = [];
 
 init();
@@ -119,7 +120,7 @@ function init() {
 
     const geometry = new THREE.SphereGeometry(500, 60, 40);
     geometry.scale(-1, 1, 1);
-    sphere = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: 0x111111 }));
+    sphere = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: 0x000000 }));
     scene.add(sphere);
 
     setupInteractions();
@@ -140,7 +141,6 @@ function setupInteractions() {
         document.addEventListener('pointerup', up);
     });
 
-    // マウスホイールによる遠近調整
     container.addEventListener('wheel', (e) => {
         camera.fov = Math.min(90, Math.max(30, camera.fov + e.deltaY * 0.05));
         camera.updateProjectionMatrix();
@@ -149,13 +149,19 @@ function setupInteractions() {
 
 function setupFeatures() {
     const input = document.getElementById('file-input');
-    document.getElementById('upload-btn').onclick = () => input.click();
-    input.onchange = (e) => handleFiles(e.target.files);
+    const uploadBtn = document.getElementById('upload-btn');
+    uploadBtn.onclick = () => input.click();
+    
+    input.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) handleFiles(e.target.files);
+    });
 
-    window.ondragover = (e) => e.preventDefault();
-    window.ondrop = (e) => { e.preventDefault(); handleFiles(e.dataTransfer.files); };
+    window.addEventListener('dragover', (e) => e.preventDefault());
+    window.addEventListener('drop', (e) => {
+        e.preventDefault();
+        if (e.dataTransfer.files.length > 0) handleFiles(e.dataTransfer.files);
+    });
 
-    // 静止画保存
     document.getElementById('shot-btn').onclick = () => {
         const link = document.createElement('a');
         link.download = `masiro_shot_${Date.now()}.png`;
@@ -163,7 +169,6 @@ function setupFeatures() {
         link.click();
     };
 
-    // 録画機能
     document.getElementById('rec-btn').onclick = function() {
         if (!mediaRecorder || mediaRecorder.state === 'inactive') {
             startRecording(this);
@@ -181,29 +186,32 @@ function setupFeatures() {
 }
 
 function handleFiles(files) {
-    const fileList = Array.from(files).slice(0, 50);
-    const container = document.getElementById('image-items');
+    const fileArray = Array.from(files);
+    const listContainer = document.getElementById('image-items');
     document.getElementById('side-list').classList.remove('hidden');
     
-    fileList.forEach((file, index) => {
+    fileArray.forEach((file, index) => {
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = (event) => {
             const item = document.createElement('div');
             item.className = 'list-item';
             item.textContent = file.name;
-            item.onclick = () => loadToViewer(e.target.result, item);
-            container.appendChild(item);
-            if (index === 0 && images.length === 0) loadToViewer(e.target.result, item);
-            images.push(file);
+            item.onclick = () => loadToViewer(event.target.result, item);
+            listContainer.appendChild(item);
+            
+            // 最初の画像、または追加した最初の画像を自動で表示
+            if (index === 0) loadToViewer(event.target.result, item);
         };
         reader.readAsDataURL(file);
     });
 }
 
 function loadToViewer(src, element) {
-    new THREE.TextureLoader().load(src, (texture) => {
+    const loader = new THREE.TextureLoader();
+    loader.load(src, (texture) => {
         texture.colorSpace = THREE.SRGBColorSpace;
         sphere.material.map = texture;
+        sphere.material.color.set(0xffffff);
         sphere.material.needsUpdate = true;
         document.getElementById('drop-zone').classList.add('hidden');
         document.querySelectorAll('.list-item').forEach(el => el.classList.remove('active'));
@@ -215,7 +223,7 @@ function startRecording(btn) {
     recordedChunks = [];
     const stream = renderer.domElement.captureStream(30);
     mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9' });
-    mediaRecorder.ondataavailable = (e) => recordedChunks.push(e.data);
+    mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
     mediaRecorder.onstop = () => {
         const blob = new Blob(recordedChunks, { type: 'video/webm' });
         const url = URL.createObjectURL(blob);
@@ -225,4 +233,24 @@ function startRecording(btn) {
     };
     mediaRecorder.start();
     btn.classList.add('recording');
-    btn.innerText = 'Stop
+    btn.innerText = 'Stop';
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    if (autoRotate && !isUserInteracting) lon += 0.08;
+    lat = Math.max(-85, Math.min(85, lat));
+    phi = THREE.MathUtils.degToRad(90 - lat);
+    theta = THREE.MathUtils.degToRad(lon);
+    camera.lookAt(500 * Math.sin(phi) * Math.cos(theta), 500 * Math.cos(phi), 500 * Math.sin(phi) * Math.sin(theta));
+    renderer.render(scene, camera);
+}
+
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>
