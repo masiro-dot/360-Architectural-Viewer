@@ -3,146 +3,121 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>360° Architectural Viewer</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400&display=swap" rel="stylesheet">
+    <title>Design Mashiro | 360° Viewer Pro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital@1&family=Inter:wght@300;400&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #0a0a0a;
-            --ui-bg: rgba(20, 20, 20, 0.8);
-            --accent: #c9a96e; /* 建築パースに馴染むゴールド系アクセント */
-            --text-color: #e0e0e0;
-            --font-main: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --bg-deep: #050505;
+            --ui-bg: rgba(15, 15, 15, 0.85);
+            --accent: #c9a96e;
+            --text: #e8e6e1;
+            --line: rgba(201, 169, 110, 0.3);
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            background: var(--bg-deep); 
+            color: var(--text); 
+            font-family: 'Inter', sans-serif; 
+            height: 100vh; 
+            overflow: hidden; 
+        }
 
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            font-family: var(--font-main);
-            height: 100vh;
-            overflow: hidden;
+        /* 建築デザインらしいヘッダー追加 */
+        header {
+            position: absolute;
+            top: 0; width: 100%;
+            padding: 20px 30px;
             display: flex;
-            flex-direction: column;
+            align-items: baseline;
+            gap: 15px;
+            z-index: 100;
+            pointer-events: none;
         }
 
-        /* ビューアエリア */
-        #viewer-container {
-            flex: 1;
-            width: 100%;
-            position: relative;
-            cursor: grab;
+        .logo {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 24px;
+            letter-spacing: 0.1em;
+            color: var(--text);
         }
-        #viewer-container:active { cursor: grabbing; }
 
-        /* ドロップゾーンのオーバーレイ */
+        .logo span { color: var(--accent); }
+
+        #viewer-container { width: 100%; height: 100vh; cursor: grab; }
+
+        /* UIパネルの洗練 */
+        #ui-panel {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--ui-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--line);
+            padding: 10px 25px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            border-radius: 2px;
+            z-index: 100;
+        }
+
+        .file-info { font-size: 11px; letter-spacing: 0.1em; color: var(--accent); text-transform: uppercase; }
+
+        .btn-group { display: flex; gap: 10px; }
+        button {
+            background: transparent;
+            border: none;
+            color: var(--text);
+            font-size: 10px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            cursor: pointer;
+            padding: 8px 12px;
+            transition: 0.3s;
+        }
+        button:hover { color: var(--accent); }
+        button.active { border-bottom: 1px solid var(--accent); }
+
+        /* 初期案内 */
         #drop-zone {
             position: absolute;
             inset: 0;
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            background: rgba(0, 0, 0, 0.6);
-            border: 2px dashed #444;
-            margin: 20px;
-            z-index: 10;
-            transition: all 0.3s ease;
-            pointer-events: none; /* 初期状態では後ろの操作を邪魔しない */
-        }
-        #drop-zone.active {
-            background: rgba(201, 169, 110, 0.2);
-            border-color: var(--accent);
-            opacity: 1;
-        }
-        .hidden { opacity: 0; display: none !important; }
-
-        /* 下部UIパネル */
-        #ui-panel {
-            background: var(--ui-bg);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border-top: 1px solid #222;
-            padding: 15px 25px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            z-index: 20;
-        }
-
-        .file-info {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-        #file-name {
-            font-size: 14px;
-            letter-spacing: 0.05em;
-            color: var(--text-color);
-        }
-        .status-tag {
-            font-size: 10px;
-            text-transform: uppercase;
-            color: var(--accent);
+            background: rgba(0,0,0,0.8);
+            z-index: 50;
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 20px;
+            font-style: italic;
             letter-spacing: 0.1em;
+            transition: 0.5s;
         }
-
-        .controls {
-            display: flex;
-            gap: 15px;
-        }
-
-        button {
-            background: transparent;
-            border: 1px solid #444;
-            color: var(--text-color);
-            padding: 8px 16px;
-            font-size: 12px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-        }
-        button:hover {
-            border-color: var(--accent);
-            color: var(--accent);
-        }
-        button.active {
-            background: var(--accent);
-            color: var(--bg-color);
-            border-color: var(--accent);
-        }
-
-        /* レスポンシブ調整 */
-        @media (max-width: 600px) {
-            #ui-panel {
-                flex-direction: column;
-                gap: 15px;
-                padding: 20px;
-            }
-            .controls { width: 100%; justify-content: center; }
-        }
+        #drop-zone.hidden { opacity: 0; pointer-events: none; }
     </style>
 </head>
 <body>
 
+<header>
+    <div class="logo">DESIGN MASHIRO <span>360°</span></div>
+</header>
+
 <div id="viewer-container">
-    <div id="drop-zone">
-        <p style="font-size: 18px; margin-bottom: 10px;">PANORAMA VIEWER</p>
-        <p style="font-size: 12px; color: #888;">ドラッグ＆ドロップして画像を表示</p>
+    <div id="drop-zone" id="drop-zone">
+        Drop your panorama here
     </div>
 </div>
 
 <div id="ui-panel">
-    <div class="file-info">
-        <span class="status-tag">Live Preview</span>
-        <span id="file-name">画像を読み込んでください</span>
-    </div>
-    <div class="controls">
-        <button id="rotate-btn" class="active">Auto Rotate</button>
+    <div class="file-info" id="file-name">Waiting for Image...</div>
+    <div class="btn-group">
+        <button id="rotate-btn" class="active">Rotation</button>
         <button id="upload-btn">Upload</button>
-        <input type="file" id="file-input" accept="image/*" style="display: none;">
     </div>
+    <input type="file" id="file-input" accept="image/*" style="display:none;">
 </div>
 
 <script type="importmap">
@@ -157,152 +132,101 @@
 import * as THREE from 'three';
 
 let scene, camera, renderer, sphere;
+let lon = 0, lat = 0, phi = 0, theta = 0;
 let isUserInteracting = false;
-let onPointerDownPointerX = 0, onPointerDownPointerY = 0;
-let lon = 0, onPointerDownLon = 0;
-let lat = 0, onPointerDownLat = 0;
-let phi = 0, theta = 0;
 let autoRotate = true;
-
-const container = document.getElementById('viewer-container');
-const fileNameDisplay = document.getElementById('file-name');
 
 init();
 animate();
 
 function init() {
-    // Scene & Camera
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 1100);
 
-    // Renderer
-    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
-    container.appendChild(renderer.domElement);
+    
+    // 【重要】明るさを正しく表現するための設定
+    renderer.outputColorSpace = THREE.SRGBColorSpace; 
+    renderer.toneMapping = THREE.ACESFilmicToneMapping; // 映画のような階調表現
+    renderer.toneMappingExposure = 1.2; // 明るさの露出調整（ここを上げると明るくなります）
 
-    // Sphere Geometry (Inside out)
+    document.getElementById('viewer-container').appendChild(renderer.domElement);
+
     const geometry = new THREE.SphereGeometry(500, 60, 40);
-    geometry.scale(-1, 1, 1); // 内側に画像を貼り付けるために反転
-
-    const material = new THREE.MeshBasicMaterial({ color: 0x111111 }); // 初期状態は暗い色
+    geometry.scale(-1, 1, 1);
+    const material = new THREE.MeshBasicMaterial({ color: 0x222222 });
     sphere = new THREE.Mesh(geometry, material);
     scene.add(sphere);
 
-    // Events
-    container.addEventListener('pointerdown', onPointerDown);
-    container.addEventListener('wheel', onWheel);
-    window.addEventListener('resize', onWindowResize);
+    // イベント設定
+    const container = document.getElementById('viewer-container');
+    container.addEventListener('pointerdown', (e) => {
+        isUserInteracting = true;
+        const onPointerMove = (ev) => {
+            lon = (e.clientX - ev.clientX) * 0.1 + lon;
+            lat = (ev.clientY - e.clientY) * 0.1 + lat;
+        };
+        const onPointerUp = () => {
+            isUserInteracting = false;
+            document.removeEventListener('pointermove', onPointerMove);
+            document.removeEventListener('pointerup', onPointerUp);
+        };
+        document.addEventListener('pointermove', onPointerMove);
+        document.addEventListener('pointerup', onPointerUp);
+    });
 
-    // File Upload & Drag/Drop
-    setupFileHandlers();
+    container.addEventListener('wheel', (e) => {
+        camera.fov = Math.min(80, Math.max(30, camera.fov + e.deltaY * 0.05));
+        camera.updateProjectionMatrix();
+    });
+
+    setupFileUpload();
 }
 
-function setupFileHandlers() {
-    const dropZone = document.getElementById('drop-zone');
-    const fileInput = document.getElementById('file-input');
+function setupFileUpload() {
+    const input = document.getElementById('file-input');
     const uploadBtn = document.getElementById('upload-btn');
+    const dropZone = document.getElementById('drop-zone');
 
-    uploadBtn.addEventListener('click', () => fileInput.click());
+    uploadBtn.onclick = () => input.click();
+    input.onchange = (e) => loadTexture(e.target.files[0]);
     
-    fileInput.addEventListener('change', (e) => {
-        if (e.target.files.length > 0) loadTexture(e.target.files[0]);
-    });
-
-    window.addEventListener('dragover', (e) => {
+    window.ondragover = (e) => { e.preventDefault(); };
+    window.ondrop = (e) => {
         e.preventDefault();
-        dropZone.classList.add('active');
-        dropZone.classList.remove('hidden');
-    });
-
-    window.addEventListener('dragleave', () => {
-        dropZone.classList.remove('active');
-    });
-
-    window.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropZone.classList.remove('active');
-        if (e.dataTransfer.files.length > 0) {
-            loadTexture(e.dataTransfer.files[0]);
-        }
-    });
+        loadTexture(e.dataTransfer.files[0]);
+    };
 }
 
 function loadTexture(file) {
+    if(!file) return;
     const reader = new FileReader();
-    reader.onload = function(e) {
-        const loader = new THREE.TextureLoader();
-        loader.load(e.target.result, (texture) => {
-            texture.colorSpace = THREE.SRGBColorSpace;
+    reader.onload = (e) => {
+        new THREE.TextureLoader().load(e.target.result, (texture) => {
+            texture.colorSpace = THREE.SRGBColorSpace; // テクスチャの色空間を正しく設定
             sphere.material.map = texture;
             sphere.material.needsUpdate = true;
             document.getElementById('drop-zone').classList.add('hidden');
-            fileNameDisplay.textContent = file.name;
+            document.getElementById('file-name').textContent = file.name;
         });
     };
     reader.readAsDataURL(file);
 }
 
-// Controls
-document.getElementById('rotate-btn').addEventListener('click', function() {
+document.getElementById('rotate-btn').onclick = function() {
     autoRotate = !autoRotate;
     this.classList.toggle('active');
-});
-
-function onPointerDown(event) {
-    if (event.isPrimary === false) return;
-    isUserInteracting = true;
-    onPointerDownPointerX = event.clientX;
-    onPointerDownPointerY = event.clientY;
-    onPointerDownLon = lon;
-    onPointerDownLat = lat;
-    document.addEventListener('pointermove', onPointerMove);
-    document.addEventListener('pointerup', onPointerUp);
-}
-
-function onPointerMove(event) {
-    if (event.isPrimary === false) return;
-    lon = (onPointerDownPointerX - event.clientX) * 0.1 + onPointerDownLon;
-    lat = (event.clientY - onPointerDownPointerY) * 0.1 + onPointerDownLat;
-}
-
-function onPointerUp() {
-    isUserInteracting = false;
-    document.removeEventListener('pointermove', onPointerMove);
-    document.removeEventListener('pointerup', onPointerUp);
-}
-
-function onWheel(event) {
-    const fov = camera.fov + event.deltaY * 0.05;
-    camera.fov = THREE.MathUtils.clamp(fov, 10, 75);
-    camera.updateProjectionMatrix();
-}
-
-function onWindowResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-}
+};
 
 function animate() {
     requestAnimationFrame(animate);
-    update();
-}
-
-function update() {
-    if (autoRotate && !isUserInteracting) {
-        lon += 0.1;
-    }
-
+    if (autoRotate && !isUserInteracting) lon += 0.1;
     lat = Math.max(-85, Math.min(85, lat));
     phi = THREE.MathUtils.degToRad(90 - lat);
     theta = THREE.MathUtils.degToRad(lon);
-
-    const x = 500 * Math.sin(phi) * Math.cos(theta);
-    const y = 500 * Math.cos(phi);
-    const z = 500 * Math.sin(phi) * Math.sin(theta);
-
-    camera.lookAt(x, y, z);
+    camera.lookAt(500 * Math.sin(phi) * Math.cos(theta), 500 * Math.cos(phi), 500 * Math.sin(phi) * Math.sin(theta));
     renderer.render(scene, camera);
 }
 </script>
