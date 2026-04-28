@@ -4,18 +4,31 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>masiro | 360° Studio</title>
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital@1&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital@1&family=Inter:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {
             --bg: #000000;
             --accent: #c9a96e;
             --text: #ffffff;
-            --panel-bg: rgba(20, 20, 20, 0.98); /* 視認性を極限まで高めるためほぼ不透明に */
+            --panel-bg: #1a1a1a; /* 明確に明るいグレーにして視認性を確保 */
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; height: 100vh; overflow: hidden; }
 
-        /* UIの初期表示を確実に「見える」状態にする */
+        /* 起動画面：ここでジャイロの許可を取る */
+        #entry-overlay {
+            position: absolute; inset: 0; background: var(--bg); z-index: 5000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        #entry-overlay.hidden { display: none; }
+        .enter-btn {
+            padding: 20px 60px; border: 1px solid var(--accent); color: var(--accent);
+            background: transparent; font-family: 'Cormorant Garamond', serif; font-size: 24px;
+            cursor: pointer; transition: 0.3s;
+        }
+        .enter-btn:hover { background: var(--accent); color: #000; }
+
+        /* UI管理 */
         .ui-element { opacity: 1 !important; visibility: visible !important; transition: opacity 0.3s ease; z-index: 1000; }
         .ui-hidden .ui-element { opacity: 0 !important; visibility: hidden !important; pointer-events: none; }
 
@@ -26,36 +39,40 @@
         .logo { font-family: 'Cormorant Garamond', serif; font-size: 26px; letter-spacing: 0.1em; pointer-events: auto; }
         .logo span { color: var(--accent); font-style: italic; margin-left: 4px; font-size: 20px; }
 
-        #viewer-container { width: 100%; height: 100vh; cursor: grab; background: #000; }
+        #viewer-container { width: 100%; height: 100vh; cursor: grab; background: #0a0a0a; }
 
         #side-list {
-            position: absolute; left: 20px; top: 85px; width: 240px; max-height: 50vh;
-            background: var(--panel-bg); border: 1px solid rgba(255,255,255,0.2); 
-            padding: 15px; border-radius: 8px; overflow-y: auto; display: none;
+            position: absolute; left: 20px; top: 85px; width: 240px; max-height: 40vh;
+            background: var(--panel-bg); border: 2px solid var(--accent); 
+            padding: 10px; border-radius: 8px; overflow-y: auto; display: none;
         }
         #side-list.active { display: block; }
-        .list-item { font-size: 11px; padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff; }
-        .list-item:hover, .list-item.active { color: var(--accent); background: rgba(201, 169, 110, 0.15); }
+        .list-item { font-size: 11px; padding: 12px; border-bottom: 1px solid #333; cursor: pointer; color: #fff; font-weight: bold; }
 
+        /* 操作パネルの視認性強化 */
         #ui-panel {
             position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
-            background: var(--panel-bg); border: 2px solid var(--accent); /* 枠線をつけて存在を強調 */
-            padding: 15px 30px; border-radius: 60px; display: flex; align-items: center; gap: 20px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.9);
+            background: var(--panel-bg); border: 2px solid var(--accent); 
+            padding: 18px 35px; border-radius: 60px; display: flex; align-items: center; gap: 20px;
+            box-shadow: 0 10px 50px rgba(0,0,0,1);
         }
         .btn-group { display: flex; gap: 15px; }
         button {
-            background: transparent; border: none; color: #ffffff; font-size: 12px; font-weight: 600;
-            letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; padding: 10px 5px;
+            background: transparent; border: none; color: #ffffff !important; 
+            font-size: 13px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;
         }
-        button.active { color: var(--accent); text-decoration: underline; }
+        button.active { color: var(--accent) !important; }
         
-        #drop-zone { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.85); z-index: 2000; pointer-events: none; }
-        #drop-zone.hidden { opacity: 0; visibility: hidden; }
-        #hint { position: absolute; bottom: 115px; left: 50%; transform: translateX(-50%); font-size: 11px; color: var(--accent); pointer-events: none; }
+        #drop-zone { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 500; pointer-events: none; }
+        #drop-zone.hidden { display: none; }
     </style>
 </head>
 <body>
+
+<div id="entry-overlay">
+    <div style="font-family: 'Cormorant Garamond', serif; font-size: 32px; color: #fff; margin-bottom: 30px;">masiro 360° Studio</div>
+    <button class="enter-btn" id="start-btn">ENTER STUDIO</button>
+</div>
 
 <header class="ui-element">
     <div class="logo">masiro<span>360°</span></div>
@@ -66,10 +83,8 @@
 </div>
 
 <div id="viewer-container">
-    <div id="drop-zone"><div style="font-family: 'Cormorant Garamond', serif; font-size: 28px; color: var(--accent);">Open Your Vision</div></div>
+    <div id="drop-zone"><div style="font-family: 'Cormorant Garamond', serif; font-size: 28px; color: var(--accent);">Drag & Drop Panorama</div></div>
 </div>
-
-<div id="hint" class="ui-element">タップしてUI表示切替</div>
 
 <div id="ui-panel" class="ui-element">
     <div class="btn-group">
@@ -91,10 +106,7 @@ import * as THREE from 'three';
 let scene, camera, renderer, sphere;
 let lon = 0, lat = 0;
 let isUserInteracting = false, autoRotate = true, useGyro = false;
-
-// ジャイロ制御用のクォータニオン
-const deviceQuaternion = new THREE.Quaternion();
-const worldQuaternion = new THREE.Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5)); // -90deg X-axis
+let orient = 0;
 
 init();
 animate();
@@ -107,7 +119,6 @@ function init() {
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMapping = THREE.NoToneMapping; 
     
     document.getElementById('viewer-container').appendChild(renderer.domElement);
 
@@ -145,61 +156,41 @@ function setupInteractions() {
         document.addEventListener('pointermove', move);
         document.addEventListener('pointerup', up);
     });
-
-    container.addEventListener('wheel', (e) => {
-        camera.fov = Math.min(100, Math.max(20, camera.fov + e.deltaY * 0.05));
-        camera.updateProjectionMatrix();
-    });
 }
 
 function setupFeatures() {
+    const startBtn = document.getElementById('start-btn');
+    startBtn.onclick = async () => {
+        document.getElementById('entry-overlay').classList.add('hidden');
+        // iOSのジャイロ許可リクエスト
+        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+            await DeviceOrientationEvent.requestPermission();
+        }
+    };
+
     document.getElementById('upload-btn').onclick = (e) => { e.stopPropagation(); document.getElementById('file-input').click(); };
     document.getElementById('file-input').onchange = (e) => handleFiles(e.target.files);
+    document.getElementById('rotate-btn').onclick = (e) => { e.stopPropagation(); autoRotate = !autoRotate; e.target.classList.toggle('active'); };
+    document.getElementById('shot-btn').onclick = (e) => { e.stopPropagation(); const link = document.createElement('a'); link.download = `shot.png`; link.href = renderer.domElement.toDataURL(); link.click(); };
 
-    document.getElementById('rotate-btn').onclick = (e) => {
-        e.stopPropagation(); autoRotate = !autoRotate;
-        e.target.classList.toggle('active');
-    };
-
-    document.getElementById('shot-btn').onclick = (e) => {
+    document.getElementById('gyro-btn').onclick = function(e) {
         e.stopPropagation();
-        const link = document.createElement('a');
-        link.download = `masiro_${Date.now()}.png`;
-        link.href = renderer.domElement.toDataURL('image/png');
-        link.click();
-    };
-
-    document.getElementById('gyro-btn').onclick = (e) => {
-        e.stopPropagation();
-        if (!useGyro) requestGyroPermission(e.target);
-        else { useGyro = false; e.target.classList.remove('active'); }
-    };
-}
-
-async function requestGyroPermission(btn) {
-    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-        const response = await DeviceOrientationEvent.requestPermission();
-        if (response === 'granted') {
+        useGyro = !useGyro;
+        this.classList.toggle('active');
+        if (useGyro) {
             window.addEventListener('deviceorientation', onDeviceOrientation, true);
-            useGyro = true; btn.classList.add('active');
+        } else {
+            window.removeEventListener('deviceorientation', onDeviceOrientation, true);
         }
-    } else {
-        window.addEventListener('deviceorientation', onDeviceOrientation, true);
-        useGyro = true; btn.classList.add('active');
-    }
+    };
 }
 
 function onDeviceOrientation(e) {
-    const alpha = e.alpha ? THREE.MathUtils.degToRad(e.alpha) : 0;
-    const beta = e.beta ? THREE.MathUtils.degToRad(e.beta) : 0;
-    const gamma = e.gamma ? THREE.MathUtils.degToRad(e.gamma) : 0;
-    const orient = window.orientation ? THREE.MathUtils.degToRad(window.orientation) : 0;
-
-    // クォータニオンを使用してデバイスの向きを計算
-    const zee = new THREE.Vector3(0, 0, 1);
-    const euler = new THREE.Euler(beta, alpha, -gamma, 'YXZ');
-    deviceQuaternion.setFromEuler(euler);
-    deviceQuaternion.multiply(new THREE.Quaternion().setFromAxisAngle(zee, -orient));
+    if (!useGyro || isUserInteracting) return;
+    // シンプルかつ確実な角度取得
+    // beta: 上下傾き (-90 to 90), gamma: 左右傾き (-90 to 90), alpha: 方角 (0 to 360)
+    lat = e.beta - 90;
+    lon = -e.alpha;
 }
 
 function handleFiles(files) {
@@ -223,7 +214,7 @@ function loadToViewer(src, element) {
     new THREE.TextureLoader().load(src, (texture) => {
         texture.colorSpace = THREE.SRGBColorSpace;
         sphere.material.map = texture;
-        sphere.material.color.set(0xffffff); 
+        sphere.material.color.set(0xffffff);
         sphere.material.needsUpdate = true;
         document.getElementById('drop-zone').classList.add('hidden');
         document.querySelectorAll('.list-item').forEach(el => el.classList.remove('active'));
@@ -233,26 +224,13 @@ function loadToViewer(src, element) {
 
 function animate() {
     requestAnimationFrame(animate);
-    
-    if (useGyro) {
-        camera.quaternion.copy(worldQuaternion);
-        camera.quaternion.multiply(deviceQuaternion);
-    } else {
-        if (autoRotate && !isUserInteracting) lon += 0.1;
-        lat = Math.max(-85, Math.min(85, lat));
-        const phi = THREE.MathUtils.degToRad(90 - lat);
-        const theta = THREE.MathUtils.degToRad(lon);
-        camera.lookAt(500 * Math.sin(phi) * Math.cos(theta), 500 * Math.cos(phi), 500 * Math.sin(phi) * Math.sin(theta));
-    }
-    
+    if (!useGyro && autoRotate && !isUserInteracting) lon += 0.1;
+    lat = Math.max(-85, Math.min(85, lat));
+    const phi = THREE.MathUtils.degToRad(90 - lat);
+    const theta = THREE.MathUtils.degToRad(lon);
+    camera.lookAt(500 * Math.sin(phi) * Math.cos(theta), 500 * Math.cos(phi), 500 * Math.sin(phi) * Math.sin(theta));
     renderer.render(scene, camera);
 }
-
-window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-});
 </script>
 </body>
 </html>
