@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>masiro | 360° Studio Pro</title>
+    <title>masiro | 360° Studio</title>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital@1&family=Inter:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root { --bg: #000; --accent: #c9a96e; --panel-bg: #1a1a1a; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { background: var(--bg); color: #fff; font-family: 'Inter', sans-serif; height: 100vh; overflow: hidden; }
 
-        /* 起動オーバーレイ */
+        /* 起動画面 */
         #entry-overlay {
             position: fixed; inset: 0; background: #000; z-index: 9999;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -29,24 +29,27 @@
         .logo { font-family: 'Cormorant Garamond', serif; font-size: 26px; letter-spacing: 0.1em; pointer-events: auto; }
         .logo span { color: var(--accent); font-style: italic; margin-left: 4px; font-size: 20px; }
 
-        #viewer-container { width: 100vw; height: 100vh; touch-action: none; }
+        #viewer-container { width: 100vw; height: 100vh; touch-action: none; cursor: grab; }
 
         #ui-panel {
             position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
             background: var(--panel-bg); border: 2px solid var(--accent); 
-            padding: 15px 30px; border-radius: 60px; display: flex; gap: 20px;
+            padding: 15px 30px; border-radius: 60px; display: flex; gap: 25px;
             box-shadow: 0 10px 50px rgba(0,0,0,1);
         }
-        button { background: transparent; border: none; color: #fff; font-size: 12px; font-weight: 700; cursor: pointer; text-transform: uppercase; }
+        button { background: transparent; border: none; color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; text-transform: uppercase; }
         button.active { color: var(--accent) !important; text-decoration: underline; }
 
         #side-list {
-            position: absolute; left: 20px; top: 85px; width: 240px; max-height: 40vh;
+            position: absolute; left: 20px; top: 85px; width: 240px; max-height: 45vh;
             background: var(--panel-bg); border: 2px solid var(--accent); 
             padding: 10px; border-radius: 8px; overflow-y: auto; display: none;
         }
         #side-list.active { display: block; }
-        .list-item { font-size: 11px; padding: 12px; border-bottom: 1px solid #333; cursor: pointer; }
+        .list-item { font-size: 11px; padding: 12px; border-bottom: 1px solid #333; cursor: pointer; color: #ccc; }
+        .list-item.active { color: var(--accent); background: rgba(201, 169, 110, 0.1); }
+        
+        #hint { position: absolute; bottom: 110px; left: 50%; transform: translateX(-50%); font-size: 11px; color: var(--accent); pointer-events: none; }
     </style>
 </head>
 <body>
@@ -66,10 +69,11 @@
 
 <div id="viewer-container"></div>
 
+<div id="hint" class="ui-element">タップでUI表示切替</div>
+
 <div id="ui-panel" class="ui-element">
     <button id="upload-btn">Import</button>
-    <button id="rotate-btn" class="active">Auto</button>
-    <button id="gyro-btn">Gyro</button>
+    <button id="rotate-btn" class="active">Auto Rotation</button>
     <button id="shot-btn">Snapshot</button>
     <input type="file" id="file-input" accept="image/*" multiple style="display:none;">
 </div>
@@ -83,11 +87,7 @@ import * as THREE from 'three';
 
 let scene, camera, renderer, sphere;
 let lon = 0, lat = 0;
-let isUserInteracting = false, autoRotate = true, useGyro = false;
-
-// ジャイロ計算用オブジェクト
-const deviceQuaternion = new THREE.Quaternion();
-const worldQuaternion = new THREE.Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5)); // -90deg X
+let isUserInteracting = false, autoRotate = true;
 
 init();
 animate();
@@ -105,7 +105,7 @@ function init() {
 
     const geometry = new THREE.SphereGeometry(500, 60, 40);
     geometry.scale(-1, 1, 1);
-    sphere = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: 0x111 }));
+    sphere = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: 0x111111 }));
     scene.add(sphere);
 
     setupInteractions();
@@ -117,10 +117,10 @@ function setupInteractions() {
     let tapStartX, tapStartY, tapStartTime;
 
     container.addEventListener('pointerdown', (e) => {
-        if (useGyro) return;
         tapStartX = e.clientX; tapStartY = e.clientY;
         tapStartTime = Date.now();
         isUserInteracting = true;
+        
         const sLon = lon, sLat = lat;
         const move = (ev) => {
             lon = (tapStartX - ev.clientX) * 0.15 + sLon;
@@ -129,6 +129,7 @@ function setupInteractions() {
         const up = (ev) => {
             isUserInteracting = false;
             const dist = Math.hypot(ev.clientX - tapStartX, ev.clientY - tapStartY);
+            // 移動が少なく、短いタップならUIを切り替え
             if (dist < 5 && (Date.now() - tapStartTime) < 250) {
                 document.body.classList.toggle('ui-hidden');
             }
@@ -138,63 +139,59 @@ function setupInteractions() {
         document.addEventListener('pointermove', move);
         document.addEventListener('pointerup', up);
     });
+
+    container.addEventListener('wheel', (e) => {
+        camera.fov = Math.min(100, Math.max(20, camera.fov + e.deltaY * 0.05));
+        camera.updateProjectionMatrix();
+    });
 }
 
 function setupFeatures() {
-    document.getElementById('start-btn').onclick = async () => {
+    document.getElementById('start-btn').onclick = () => {
         document.getElementById('entry-overlay').classList.add('hidden');
-        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-            await DeviceOrientationEvent.requestPermission();
-        }
     };
 
-    document.getElementById('upload-btn').onclick = (e) => { e.stopPropagation(); document.getElementById('file-input').click(); };
-    document.getElementById('file-input').onchange = (e) => handleFiles(e.target.files);
-    document.getElementById('rotate-btn').onclick = (e) => { e.stopPropagation(); autoRotate = !autoRotate; e.target.classList.toggle('active'); };
-    document.getElementById('shot-btn').onclick = (e) => { e.stopPropagation(); const link = document.createElement('a'); link.download = `shot.png`; link.href = renderer.domElement.toDataURL(); link.click(); };
-
-    document.getElementById('gyro-btn').onclick = function(e) {
-        e.stopPropagation();
-        useGyro = !useGyro;
-        this.classList.toggle('active');
-        if (useGyro) {
-            window.addEventListener('deviceorientation', onDeviceOrientation, true);
-        } else {
-            window.removeEventListener('deviceorientation', onDeviceOrientation, true);
-            camera.quaternion.set(0,0,0,1); // リセット
-        }
+    document.getElementById('upload-btn').onclick = (e) => { 
+        e.stopPropagation(); 
+        document.getElementById('file-input').click(); 
     };
-}
-
-function onDeviceOrientation(e) {
-    if (!useGyro) return;
-
-    const alpha = e.alpha ? THREE.MathUtils.degToRad(e.alpha) : 0;
-    const beta = e.beta ? THREE.MathUtils.degToRad(e.beta) : 0;
-    const gamma = e.gamma ? THREE.MathUtils.degToRad(e.gamma) : 0;
-    const orient = window.orientation ? THREE.MathUtils.degToRad(window.orientation) : 0;
-
-    // デバイスの生の傾きをクォータニオンに変換
-    const euler = new THREE.Euler(beta, alpha, -gamma, 'YXZ');
-    deviceQuaternion.setFromEuler(euler);
     
-    // 画面の回転（縦・横）を補正
-    const qRotate = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -orient);
-    deviceQuaternion.multiply(qRotate);
+    document.getElementById('file-input').onchange = (e) => handleFiles(e.target.files);
+    
+    document.getElementById('rotate-btn').onclick = (e) => { 
+        e.stopPropagation(); 
+        autoRotate = !autoRotate; 
+        e.target.classList.toggle('active'); 
+    };
+
+    document.getElementById('shot-btn').onclick = (e) => { 
+        e.stopPropagation(); 
+        const link = document.createElement('a'); 
+        link.download = `masiro_360_${Date.now()}.png`; 
+        link.href = renderer.domElement.toDataURL(); 
+        link.click(); 
+    };
 }
 
 function handleFiles(files) {
+    if (!files.length) return;
     const listContainer = document.getElementById('image-items');
     document.getElementById('side-list').classList.add('active');
+    
     Array.from(files).forEach((file, index) => {
         const reader = new FileReader();
         reader.onload = (e) => {
             const item = document.createElement('div');
             item.className = 'list-item';
             item.textContent = file.name;
-            item.onclick = (ev) => { ev.stopPropagation(); loadToViewer(e.target.result, item); };
+            item.onclick = (ev) => { 
+                ev.stopPropagation(); 
+                loadToViewer(e.target.result, item); 
+            };
             listContainer.appendChild(item);
-            if (index === 0 && document.querySelectorAll('.list-item').length === 1) loadToViewer(e.target.result, item);
+            if (index === 0 && document.querySelectorAll('.list-item').length === 1) {
+                loadToViewer(e.target.result, item);
+            }
         };
         reader.readAsDataURL(file);
     });
@@ -214,18 +211,15 @@ function loadToViewer(src, element) {
 function animate() {
     requestAnimationFrame(animate);
     
-    if (useGyro) {
-        // クォータニオンによる絶対的な向きの適用（水平が保たれる）
-        camera.quaternion.copy(worldQuaternion);
-        camera.quaternion.multiply(deviceQuaternion);
-    } else {
-        if (autoRotate && !isUserInteracting) lon += 0.1;
-        lat = Math.max(-85, Math.min(85, lat));
-        const phi = THREE.MathUtils.degToRad(90 - lat);
-        const theta = THREE.MathUtils.degToRad(lon);
-        camera.lookAt(500 * Math.sin(phi) * Math.cos(theta), 500 * Math.cos(phi), 500 * Math.sin(phi) * Math.sin(theta));
+    if (autoRotate && !isUserInteracting) {
+        lon += 0.1;
     }
     
+    lat = Math.max(-85, Math.min(85, lat));
+    const phi = THREE.MathUtils.degToRad(90 - lat);
+    const theta = THREE.MathUtils.degToRad(lon);
+    
+    camera.lookAt(500 * Math.sin(phi) * Math.cos(theta), 500 * Math.cos(phi), 500 * Math.sin(phi) * Math.sin(theta));
     renderer.render(scene, camera);
 }
 
